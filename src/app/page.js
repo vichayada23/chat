@@ -263,6 +263,7 @@ export default function Home() {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(null);
+  const [viewingPhotoObj, setViewingPhotoObj] = useState(null);
 
   // Load User Login Session from LocalStorage on mount
   useEffect(() => {
@@ -2138,15 +2139,45 @@ export default function Home() {
   
   
   
+  // Collect all photos dynamically from messagesState + shared photos
+  const activeChatPhotos = React.useMemo(() => {
+    const list = [];
+    const seenUrls = new Set();
+
+    const allMsgs = Object.values(messagesState || {}).flat();
+    allMsgs.forEach((m) => {
+      if (m && m.imageAttachment && m.imageAttachment.url) {
+        if (!seenUrls.has(m.imageAttachment.url)) {
+          seenUrls.add(m.imageAttachment.url);
+          list.push({
+            id: m.id,
+            url: m.imageAttachment.url,
+            fileName: m.imageAttachment.fileName || "รูปภาพสื่อสาร",
+            sender: m.senderName || "สมาชิก",
+            timestamp: m.timestamp || "เมื่อสักครู่",
+          });
+        }
+      }
+    });
+
+    (mockSharedPhotos || []).forEach((p) => {
+      if (p && p.url && !seenUrls.has(p.url)) {
+        seenUrls.add(p.url);
+        list.push(p);
+      }
+    });
+
+    return list;
+  }, [messagesState, mockSharedPhotos]);
+
   const handleOpenPhotoViewerByObject = (photoObj) => {
-    const index = mockSharedPhotos.findIndex(
-      (p) => p.url === photoObj.url || p.fileName === photoObj.fileName
-    );
-    if (index !== -1) {
-      setSelectedPhotoIndex(index);
-    } else {
-      setSelectedPhotoIndex(0);
-    }
+    if (!photoObj || !photoObj.url) return;
+    setViewingPhotoObj({
+      url: photoObj.url,
+      fileName: photoObj.fileName || "รูปภาพสื่อสาร",
+      sender: photoObj.sender || photoObj.senderName || "สมาชิก",
+      timestamp: photoObj.timestamp || "เมื่อสักครู่",
+    });
   };
 
   if (!isLoggedIn) {
@@ -2401,19 +2432,50 @@ export default function Home() {
 
       {/* Photo Viewer Lightbox Modal */}
       <PhotoViewerModal
-        isOpen={selectedPhotoIndex !== null}
+        isOpen={!!viewingPhotoObj || selectedPhotoIndex !== null}
         photo={
-          selectedPhotoIndex !== null ? mockSharedPhotos[selectedPhotoIndex] : null
+          viewingPhotoObj ||
+          (selectedPhotoIndex !== null ? mockSharedPhotos[selectedPhotoIndex] : null)
         }
-        onClose={() => setSelectedPhotoIndex(null)}
-        onPrev={() => setSelectedPhotoIndex((prev) => Math.max(0, prev - 1))}
-        onNext={() =>
-          setSelectedPhotoIndex((prev) =>
-            Math.min(mockSharedPhotos.length - 1, prev + 1)
-          )
+        onClose={() => {
+          setViewingPhotoObj(null);
+          setSelectedPhotoIndex(null);
+        }}
+        onPrev={() => {
+          if (viewingPhotoObj) {
+            const currIdx = activeChatPhotos.findIndex((p) => p.url === viewingPhotoObj.url);
+            if (currIdx > 0) {
+              setViewingPhotoObj(activeChatPhotos[currIdx - 1]);
+            }
+          } else if (selectedPhotoIndex !== null) {
+            setSelectedPhotoIndex((prev) => Math.max(0, prev - 1));
+          }
+        }}
+        onNext={() => {
+          if (viewingPhotoObj) {
+            const currIdx = activeChatPhotos.findIndex((p) => p.url === viewingPhotoObj.url);
+            if (currIdx !== -1 && currIdx < activeChatPhotos.length - 1) {
+              setViewingPhotoObj(activeChatPhotos[currIdx + 1]);
+            }
+          } else if (selectedPhotoIndex !== null) {
+            setSelectedPhotoIndex((prev) =>
+              Math.min(mockSharedPhotos.length - 1, prev + 1)
+            );
+          }
+        }}
+        hasPrev={
+          viewingPhotoObj
+            ? activeChatPhotos.findIndex((p) => p.url === viewingPhotoObj.url) > 0
+            : selectedPhotoIndex > 0
         }
-        hasPrev={selectedPhotoIndex > 0}
-        hasNext={selectedPhotoIndex < mockSharedPhotos.length - 1}
+        hasNext={
+          viewingPhotoObj
+            ? (() => {
+                const idx = activeChatPhotos.findIndex((p) => p.url === viewingPhotoObj.url);
+                return idx !== -1 && idx < activeChatPhotos.length - 1;
+              })()
+            : selectedPhotoIndex !== null && selectedPhotoIndex < mockSharedPhotos.length - 1
+        }
       />
     </div>
   );
