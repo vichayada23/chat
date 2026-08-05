@@ -58,7 +58,7 @@ export default function InfoDrawer({
       date: m.timestamp || "เมื่อครู่นี้",
     }));
 
-  const members = isChannel
+  const rawMembers = isChannel
     ? (activeChat.members || [
         {
           id: currentUser.id,
@@ -81,6 +81,23 @@ export default function InfoDrawer({
           avatar: activeChat.avatar || "/default-avatar.svg",
         },
       ];
+
+  const members = rawMembers.map((m, idx) => {
+    if (typeof m === "string") {
+      return {
+        id: `mem-${idx}-${m}`,
+        name: m,
+        role: "Team Member",
+        avatar: "/default-avatar.svg",
+      };
+    }
+    return {
+      id: m.id || m.email || `mem-${idx}-${m.name || 'user'}`,
+      name: m.name || m.email || "สมาชิก",
+      role: m.role || "Team Member",
+      avatar: m.avatar || "/default-avatar.svg",
+    };
+  });
 
   return (
     <aside className="info-drawer">
@@ -138,8 +155,8 @@ export default function InfoDrawer({
         </div>
 
         <div className="member-list" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          {members.map((m) => (
-            <div key={m.id} className="member-list-item">
+          {members.map((m, idx) => (
+            <div key={m.id || `member-${idx}`} className="member-list-item">
               <img
                 src={m.avatar}
                 alt={m.name}
