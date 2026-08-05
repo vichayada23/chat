@@ -2074,10 +2074,9 @@ export default function Home() {
 
     const nowMs = Date.now();
 
-    // Auto-read status if recipient / group members are online/active
+    // Auto-read status if DM recipient is online
     const initialReadBy = [];
     if (!isGroupChannel && activeDm) {
-      // If DM partner is active/online, mark as read immediately upon sending
       if (activeDm.status === "online" || activeDm.status !== "offline") {
         const partnerInfo = getRegisteredNameAndAvatar(activeDm.email || activeDm.name, activeDm.name);
         initialReadBy.push({
@@ -2087,22 +2086,6 @@ export default function Home() {
           readAt: nowMs,
         });
       }
-    } else if (isGroupChannel) {
-      // If Group channel, mark active group members as read immediately upon sending
-      const targetChannelObj = channels.find((c) => c.id === targetId);
-      const members = targetChannelObj?.members || [];
-      members.forEach((m) => {
-        const mName = typeof m === "object" ? m.name : m;
-        if (mName && mName !== currentUser.name) {
-          const mInfo = getRegisteredNameAndAvatar(mName, mName);
-          initialReadBy.push({
-            id: mInfo.id || mName,
-            name: mInfo.name || mName,
-            avatar: mInfo.avatar || "/default-avatar.svg",
-            readAt: nowMs,
-          });
-        }
-      });
     }
 
     const newMessage = {
