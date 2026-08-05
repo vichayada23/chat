@@ -188,16 +188,18 @@ export default function MessageInput({ onSendMessage, activeChatName, onTyping, 
           {pendingAttachment.isImage ? (
             <img
               src={pendingAttachment.url}
-              alt={pendingAttachment.fileName}
+              alt="รูปภาพแนบ"
               className="pending-thumb-img"
             />
           ) : (
-            <div className="pending-file-icon">📄</div>
+            <>
+              <div className="pending-file-icon">📄</div>
+              <div className="pending-file-info">
+                <div className="pending-file-name">{pendingAttachment.fileName}</div>
+                <div className="pending-file-size">{pendingAttachment.fileSize}</div>
+              </div>
+            </>
           )}
-          <div className="pending-file-info">
-            <div className="pending-file-name">{pendingAttachment.fileName}</div>
-            <div className="pending-file-size">{pendingAttachment.fileSize}</div>
-          </div>
           <button
             className="tool-btn"
             onClick={() => setPendingAttachment(null)}
