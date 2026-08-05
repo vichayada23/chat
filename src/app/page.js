@@ -65,7 +65,7 @@ export default function Home() {
     currentUserRef.current = currentUser;
   }, [currentUser]);
 
-  // ---- Real-time chat sync hook (polls /api/sync-chat-message every 1.5s) ----
+  // ---- Real-time chat sync hook (polls /api/sync-chat-message) ----
   const handleNewMessages = React.useCallback((newMsgs) => {
     setMessagesState((prev) => {
       let updated = { ...prev };
@@ -73,13 +73,22 @@ export default function Home() {
       newMsgs.forEach((msg) => {
         if (!msg?.channelId) return;
 
-        // Auto-mark incoming messages as read if recipient has active chat open
-        if (
-          activeIdRef.current &&
-          currentUserRef.current &&
-          msg.senderId !== currentUserRef.current.id &&
-          msg.senderName !== currentUserRef.current.name
-        ) {
+        // Auto-mark incoming messages as read instantly if recipient has active chat room open
+        const isCurrentRecipientInChat = (() => {
+          if (!activeIdRef.current || !currentUserRef.current) return false;
+          if (msg.senderId === currentUserRef.current.id || msg.senderName === currentUserRef.current.name) return false;
+          if (activeIdRef.current === msg.channelId) return true;
+
+          // Match DM shared channel ID
+          const activeDm = (directMessagesRef.current || []).find((d) => d.id === activeIdRef.current);
+          if (activeDm) {
+            const sharedId = getSharedDmChannelId(activeIdRef.current, activeDm.name, currentUserRef.current, directMessagesRef.current || []);
+            if (sharedId === msg.channelId) return true;
+          }
+          return false;
+        })();
+
+        if (isCurrentRecipientInChat) {
           const currentUserId = currentUserRef.current.id || currentUserRef.current.name;
           const readBy = msg.readBy || [];
           if (!readBy.some((r) => (typeof r === "object" ? r.id === currentUserId || r.name === currentUserRef.current.name : r === currentUserRef.current.name))) {
@@ -94,7 +103,7 @@ export default function Home() {
             ];
             msg.readBy = updatedReadBy;
 
-            // Sync updated readBy to Supabase
+            // Sync updated readBy to Supabase IMMEDIATELY
             fetch("/api/sync-chat-message", {
               method: "POST",
               headers: { "Content-Type": "application/json" },

@@ -154,11 +154,11 @@ export function useChatSync(currentUser, isLoggedIn, onNewMessages, onNotify, on
     // Fetch immediately on mount / login
     poll();
 
-    // Incremental poll every 1.5s
-    intervalRef.current = setInterval(poll, 1500);
+    // Incremental poll every 600ms for instant real-time status updates
+    intervalRef.current = setInterval(poll, 600);
 
-    // Full sync every 4s to catch missed messages and deletions
-    fullSyncIntervalRef.current = setInterval(fullSync, 4000);
+    // Full sync every 2s to catch missed messages and deletions
+    fullSyncIntervalRef.current = setInterval(fullSync, 2000);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
