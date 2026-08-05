@@ -41,29 +41,30 @@ export async function GET(request) {
     }
 
     const parsedList = [];
+    const seenMsgIds = new Map();
+
     if (dbMessages && dbMessages.length > 0) {
       dbMessages.forEach((m) => {
         try {
           const parsed = JSON.parse(m.content);
-          if (parsed && parsed.channelId) {
+          if (parsed && parsed.channelId && parsed.id) {
             // Filter by channelId if provided
             if (!targetChannel || parsed.channelId === targetChannel) {
-              // Attach DB timestamp for incremental sync
-              parsedList.push({ ...parsed, _dbCreatedAt: m.created_at });
+              seenMsgIds.set(parsed.id, { ...parsed, _dbCreatedAt: m.created_at });
             }
           }
         } catch (e) {}
       });
     }
 
-    return NextResponse.json({ messages: parsedList });
+    return NextResponse.json({ messages: Array.from(seenMsgIds.values()) });
   } catch (err) {
     console.error("GET sync-chat-message exception:", err);
     return NextResponse.json({ messages: [] });
   }
 }
 
-// --- POST: Save a message ---
+// --- POST: Save or Update a message ---
 export async function POST(request) {
   try {
     const reqBody = await request.json();
@@ -71,29 +72,69 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: "Missing channelId" });
     }
 
-    // Ensure unique message ID to prevent duplicates
+    // Ensure unique message ID
     const msgId = reqBody.id || `m-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const payload = { ...reqBody, id: msgId };
 
-    const { data, error } = await supabaseAdmin
+    // Check if message with this ID already exists
+    const { data: existingRows } = await supabaseAdmin
       .from("messages")
-      .insert([
-        {
-          channel_id: DEFAULT_CHANNEL_ID,
-          sender_name: payload.sender || payload.senderName || "User",
-          sender_avatar: payload.senderAvatar || payload.avatar || "/default-avatar.svg",
-          role: "ChatMessage",
-          content: JSON.stringify(payload),
-        },
-      ])
-      .select();
+      .select("id, content")
+      .eq("role", "ChatMessage")
+      .eq("channel_id", DEFAULT_CHANNEL_ID);
 
-    if (error) {
-      console.error("POST sync-chat-message error:", error);
-      return NextResponse.json({ success: false, error: error.message });
+    let existingRowId = null;
+    if (existingRows) {
+      for (const row of existingRows) {
+        try {
+          const parsed = JSON.parse(row.content);
+          if (parsed && parsed.id === msgId) {
+            existingRowId = row.id;
+            break;
+          }
+        } catch (e) {}
+      }
     }
 
-    return NextResponse.json({ success: true, data, id: msgId });
+    if (existingRowId) {
+      // Update existing message content (e.g. for readBy or reaction updates)
+      const { data, error } = await supabaseAdmin
+        .from("messages")
+        .update({
+          sender_name: payload.sender || payload.senderName || "User",
+          sender_avatar: payload.senderAvatar || payload.avatar || "/default-avatar.svg",
+          content: JSON.stringify(payload),
+        })
+        .eq("id", existingRowId)
+        .select();
+
+      if (error) {
+        console.error("POST sync-chat-message update error:", error);
+        return NextResponse.json({ success: false, error: error.message });
+      }
+      return NextResponse.json({ success: true, data, id: msgId, updated: true });
+    } else {
+      // Insert new message
+      const { data, error } = await supabaseAdmin
+        .from("messages")
+        .insert([
+          {
+            channel_id: DEFAULT_CHANNEL_ID,
+            sender_name: payload.sender || payload.senderName || "User",
+            sender_avatar: payload.senderAvatar || payload.avatar || "/default-avatar.svg",
+            role: "ChatMessage",
+            content: JSON.stringify(payload),
+          },
+        ])
+        .select();
+
+      if (error) {
+        console.error("POST sync-chat-message insert error:", error);
+        return NextResponse.json({ success: false, error: error.message });
+      }
+
+      return NextResponse.json({ success: true, data, id: msgId });
+    }
   } catch (err) {
     console.error("POST sync-chat-message exception:", err);
     return NextResponse.json({ success: false, error: err.message });

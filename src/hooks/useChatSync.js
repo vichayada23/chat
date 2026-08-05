@@ -17,6 +17,8 @@ export function useChatSync(currentUser, isLoggedIn, onNewMessages, onNotify, on
   const lastSinceRef = useRef(null);
   // Set of all message IDs we have processed
   const knownIdsRef = useRef(new Set());
+  // Map of message ID -> signature to detect real-time updates (e.g. readBy status)
+  const messageSignaturesRef = useRef(new Map());
   // Set of message IDs specifically confirmed returned from Supabase GET
   const confirmedSupabaseIdsRef = useRef(new Set());
 
@@ -29,16 +31,32 @@ export function useChatSync(currentUser, isLoggedIn, onNewMessages, onNotify, on
     (msgs, isFirstCall = false) => {
       if (!msgs || msgs.length === 0) return;
 
-      const newMsgs = [];
+      const changedMsgs = [];
+      const brandNewMsgs = [];
+
       msgs.forEach((msg) => {
         if (!msg?.id) return;
 
         // Mark as confirmed in Supabase
         confirmedSupabaseIdsRef.current.add(msg.id);
 
-        if (!knownIdsRef.current.has(msg.id)) {
-          knownIdsRef.current.add(msg.id);
-          newMsgs.push(msg);
+        const sig = JSON.stringify({
+          text: msg.text,
+          readBy: msg.readBy,
+          reactions: msg.reactions,
+          isPinned: msg.isPinned,
+          unsend: msg.unsend,
+        });
+
+        const prevSig = messageSignaturesRef.current.get(msg.id);
+        if (prevSig !== sig) {
+          messageSignaturesRef.current.set(msg.id, sig);
+          changedMsgs.push(msg);
+
+          if (!knownIdsRef.current.has(msg.id)) {
+            knownIdsRef.current.add(msg.id);
+            brandNewMsgs.push(msg);
+          }
         }
 
         // Update incremental cursor
@@ -49,12 +67,12 @@ export function useChatSync(currentUser, isLoggedIn, onNewMessages, onNotify, on
         }
       });
 
-      if (newMsgs.length > 0) {
-        onNewMessages(newMsgs);
+      if (changedMsgs.length > 0) {
+        onNewMessages(changedMsgs);
 
         // Suppress toast notifications on initial page load / refresh
-        if (!isFirstCall) {
-          newMsgs.forEach((msg) => {
+        if (!isFirstCall && brandNewMsgs.length > 0) {
+          brandNewMsgs.forEach((msg) => {
             if (
               msg.sender &&
               currentUser?.name &&
