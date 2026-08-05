@@ -14,14 +14,21 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 const DEFAULT_CHANNEL_ID = "d7842b3d-2d85-44f7-9f28-92ab439ede73";
 
-export async function GET() {
+export async function GET(request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const query = (searchParams.get("query") || "").toLowerCase().trim();
+
     const usersList = [];
     const seenEmails = new Set();
 
-    // 1. Try fetching from users table
+    // 1. Query Supabase users table (with ilike if query provided)
     try {
-      const { data: dbUsers } = await supabaseAdmin.from("users").select("*");
+      let dbReq = supabaseAdmin.from("users").select("*");
+      if (query) {
+        dbReq = dbReq.or(`name.ilike.%${query}%,email.ilike.%${query}%`);
+      }
+      const { data: dbUsers } = await dbReq;
       if (dbUsers && dbUsers.length > 0) {
         dbUsers.forEach((u) => {
           if (!u || (!u.email && !u.name)) return;
@@ -53,6 +60,14 @@ export async function GET() {
           try {
             const parsed = JSON.parse(m.content);
             if (parsed && (parsed.email || parsed.name)) {
+              const uName = (parsed.name || "").toLowerCase().trim();
+              const uEmail = (parsed.email || "").toLowerCase().trim();
+              const uPrefix = uEmail ? uEmail.split("@")[0] : "";
+
+              if (query && !uName.includes(query) && !uEmail.includes(query) && !uPrefix.includes(query)) {
+                return;
+              }
+
               const emailKey = (parsed.email || parsed.name).toLowerCase().trim();
               if (!seenEmails.has(emailKey)) {
                 seenEmails.add(emailKey);

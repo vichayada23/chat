@@ -54,11 +54,8 @@ export default function AddFriendModal({ isOpen, onClose, onAddFriend, currentUs
   useEffect(() => {
     if (!isOpen) return;
 
-    setNameInput("");
-    setSelectedUserObj(null);
-    setErrorMessage("");
-
-    async function loadUsers() {
+    const queryStr = nameInput.trim();
+    const timer = setTimeout(async () => {
       const usersList = [];
 
       try {
@@ -66,7 +63,7 @@ export default function AddFriendModal({ isOpen, onClose, onAddFriend, currentUs
         if (localUsers) {
           const parsed = JSON.parse(localUsers);
           parsed.forEach((u) => {
-            if (!u || !u.name) return;
+            if (!u || (!u.name && !u.email)) return;
             const uName = (u.name || "").toLowerCase().trim();
             const uEmail = (u.email || "").toLowerCase().trim();
             const uPrefix = uEmail ? uEmail.split("@")[0] : "";
@@ -75,7 +72,11 @@ export default function AddFriendModal({ isOpen, onClose, onAddFriend, currentUs
             if (myEmailNorm && uEmail === myEmailNorm) return;
             if (myPrefix && uPrefix === myPrefix) return;
 
-            if (!usersList.some((x) => (x.email && u.email && x.email.toLowerCase() === u.email.toLowerCase()) || x.name.toLowerCase() === uName)) {
+            if (queryStr && !uName.includes(queryStr.toLowerCase()) && !uEmail.includes(queryStr.toLowerCase()) && !uPrefix.includes(queryStr.toLowerCase())) {
+              return;
+            }
+
+            if (!usersList.some((x) => (x.email && u.email && x.email.toLowerCase() === u.email.toLowerCase()) || (x.name && uName && x.name.toLowerCase() === uName))) {
               usersList.push(u);
             }
           });
@@ -83,7 +84,7 @@ export default function AddFriendModal({ isOpen, onClose, onAddFriend, currentUs
       } catch (err) {}
 
       try {
-        const res = await fetch("/api/sync-user");
+        const res = await fetch(`/api/sync-user?query=${encodeURIComponent(queryStr)}`);
         if (res.ok) {
           const data = await res.json();
           if (data && data.users && data.users.length > 0) {
@@ -105,40 +106,11 @@ export default function AddFriendModal({ isOpen, onClose, onAddFriend, currentUs
         }
       } catch (err) {}
 
-      if (supabase) {
-        try {
-          const { data: dbUsers } = await supabase.from("users").select("*");
-          if (dbUsers && dbUsers.length > 0) {
-            dbUsers.forEach((u) => {
-              if (!u) return;
-              const uName = u.name || (u.email ? u.email.split("@")[0] : "สมาชิกองค์กร");
-              const uNormName = uName.toLowerCase().trim();
-              const uNormEmail = (u.email || "").toLowerCase().trim();
-              const uPrefix = uNormEmail ? uNormEmail.split("@")[0] : "";
-
-              if (myNameNorm && uNormName === myNameNorm) return;
-              if (myEmailNorm && uNormEmail === myEmailNorm) return;
-              if (myPrefix && uPrefix === myPrefix) return;
-
-              if (!usersList.some((x) => (x.email && u.email && x.email.toLowerCase().trim() === uNormEmail) || x.name.toLowerCase().trim() === uNormName)) {
-                usersList.push({
-                  id: u.id ? (String(u.id).startsWith("u-") ? String(u.id) : `u-${u.id}`) : `u-${Date.now()}`,
-                  name: uName,
-                  email: u.email || `${uNormName}@company.com`,
-                  role: u.role || "Team Member",
-                  avatar: u.avatar || "/default-avatar.svg",
-                });
-              }
-            });
-          }
-        } catch (err) {}
-      }
-
       setRegisteredUsers(usersList);
-    }
+    }, 150);
 
-    loadUsers();
-  }, [isOpen, myNameNorm, myEmailNorm, myPrefix]);
+    return () => clearTimeout(timer);
+  }, [isOpen, nameInput, myNameNorm, myEmailNorm, myPrefix]);
 
   if (!isOpen) return null;
 
