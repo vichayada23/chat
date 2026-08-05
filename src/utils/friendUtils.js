@@ -6,6 +6,7 @@ export const saveUserToRegisteredList = async (userData, supabase = null) => {
   if (!userData || !userData.email) return;
   const userEmail = normalize(userData.email);
   const userName = userData.name || userEmail.split("@")[0];
+  const userRole = userData.role || "Team Member";
 
   try {
     const raw = localStorage.getItem("pulse_connect_registered_users");
@@ -17,6 +18,7 @@ export const saveUserToRegisteredList = async (userData, supabase = null) => {
         ...list[index],
         id: userData.id || list[index].id,
         name: userName,
+        role: userRole,
         email: userEmail,
         avatar: userData.avatar || list[index].avatar || "/default-avatar.svg",
         password: userData.password || list[index].password,
@@ -25,6 +27,7 @@ export const saveUserToRegisteredList = async (userData, supabase = null) => {
       list.push({
         id: userData.id,
         name: userName,
+        role: userRole,
         email: userEmail,
         password: userData.password,
         avatar: userData.avatar || "/default-avatar.svg",
@@ -39,6 +42,7 @@ export const saveUserToRegisteredList = async (userData, supabase = null) => {
         {
           id: userData.id,
           name: userName,
+          role: userRole,
           email: userEmail,
           avatar: userData.avatar || "/default-avatar.svg",
         },

@@ -34,6 +34,17 @@ export default function UserSettingsModal({
 
   const avatarInputRef = useRef(null);
 
+  React.useEffect(() => {
+    if (currentUser) {
+      setName(currentUser.name || "");
+      setRole(currentUser.role || "");
+      setAvatar(currentUser.avatar || "/default-avatar.svg");
+      setStatus(currentUser.status || "online");
+      setStatusMessage(currentUser.statusMessage || "");
+      setPassword(currentUser.password || "");
+    }
+  }, [currentUser, isOpen]);
+
   if (!isOpen) return null;
 
   const handleAvatarFileChange = (e) => {
