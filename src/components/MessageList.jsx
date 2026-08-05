@@ -337,7 +337,7 @@ export default function MessageList({
               const key = typeof r === "object" ? (r.id || r.name || r.email) : r;
               return latestMessageIdPerReader.get(key) === msg.id;
             });
-            const isGroupChat = activeChat?.type === "group" || (activeId && activeId.startsWith("c-"));
+            const isGroupChat = activeChat?.type === "group" || activeChat?.type === "channel" || (activeId && (activeId.startsWith("c-") || activeId.startsWith("g-")));
 
             const resolvedSender = isSentByMe
               ? { name: currentUser.name, avatar: currentUser.avatar || msg.senderAvatar }
@@ -699,44 +699,51 @@ export default function MessageList({
                   )}
                 </div>
 
-                {/* Sent Message Read By Status Avatars */}
+                {/* Sent Message Read By Status Row */}
                 {isSentByMe && (
                   <div className="message-read-status-row">
                     {readByList.length > 0 ? (
-                      /* Show up to 3 circular profile picture avatars, 4th+ shows +N อื่นๆ badge */
-                      <div
-                        className="read-by-avatars-container"
-                        title={`อ่านแล้วโดย (${readByList.length} คน):\n${readByList.map((r) => (typeof r === "object" ? r.name || r.email : r)).join("\n")}`}
-                      >
-                        <div className="read-by-avatars-group">
-                          {readByList.slice(0, 3).map((reader, idx) => {
-                            const rName = typeof reader === "object" ? (reader.name || reader.email) : reader;
-                            const rAvatar = (typeof reader === "object" ? reader.avatar : null) || getRegisteredNameAndAvatar(rName, rName).avatar || "/default-avatar.svg";
+                      isGroupChat ? (
+                        /* Group Chat: Show circular profile picture avatars of readers */
+                        <div
+                          className="read-by-avatars-container"
+                          title={`อ่านแล้วโดย (${readByList.length} คน):\n${readByList.map((r) => (typeof r === "object" ? r.name || r.email : r)).join("\n")}`}
+                        >
+                          <div className="read-by-avatars-group">
+                            {readByList.slice(0, 3).map((reader, idx) => {
+                              const rName = typeof reader === "object" ? (reader.name || reader.email) : reader;
+                              const rAvatar = (typeof reader === "object" ? reader.avatar : null) || getRegisteredNameAndAvatar(rName, rName).avatar || "/default-avatar.svg";
 
-                            return (
-                              <img
-                                key={reader.id || idx}
-                                src={rAvatar}
-                                alt={rName || "สมาชิก"}
-                                className="read-by-avatar-img"
-                                title={`อ่านแล้วโดย: ${rName}`}
-                              />
-                            );
-                          })}
-                          {readByList.length > 3 && (
-                            <span
-                              className="read-by-more-badge"
-                              title={`และคนอื่นๆ อีก ${readByList.length - 3} คน:\n${readByList.slice(3).map((r) => (typeof r === "object" ? r.name || r.email : r)).join("\n")}`}
-                            >
-                              +{readByList.length - 3} อื่นๆ
-                            </span>
-                          )}
+                              return (
+                                <img
+                                  key={reader.id || idx}
+                                  src={rAvatar}
+                                  alt={rName || "สมาชิก"}
+                                  className="read-by-avatar-img"
+                                  title={`อ่านแล้วโดย: ${rName}`}
+                                />
+                              );
+                            })}
+                            {readByList.length > 3 && (
+                              <span
+                                className="read-by-more-badge"
+                                title={`และคนอื่นๆ อีก ${readByList.length - 3} คน:\n${readByList.slice(3).map((r) => (typeof r === "object" ? r.name || r.email : r)).join("\n")}`}
+                              >
+                                +{readByList.length - 3} อื่นๆ
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        /* DM Chat: Show "เพิ่งเห็น" when recipient reads the message */
+                        <span className="read-status-sent-text read-done" title="อ่านแล้ว">
+                          เพิ่งเห็น
+                        </span>
+                      )
                     ) : (
                       (() => {
                         const ageSec = getMessageAgeSeconds(msg);
-                        if (ageSec <= 3) {
+                        if (ageSec <= 1) {
                           return (
                             <span className="read-status-sent-text" title="ส่งข้อความแล้ว">
                               ✓ ส่งแล้ว
