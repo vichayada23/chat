@@ -537,6 +537,74 @@ export default function MessageList({
                     );
                   })()}
 
+                  {/* Attachments inside message-bubble-row */}
+                  {msg.imageAttachment && msg.imageAttachment.url && (
+                    <div
+                      className="message-image-wrapper"
+                      onClick={() => onOpenPhotoViewer(msg.imageAttachment)}
+                    >
+                      <img
+                        src={msg.imageAttachment.url}
+                        alt={msg.imageAttachment.fileName || "รูปภาพ"}
+                        className="message-attached-img"
+                      />
+                    </div>
+                  )}
+
+                  {msg.attachment && (() => {
+                    const ext = (msg.attachment.fileType || msg.attachment.fileName?.split(".").pop() || "").toLowerCase();
+                    const isPdf = ext === "pdf";
+                    const isWord = ["doc", "docx"].includes(ext);
+                    const isExcel = ["xls", "xlsx"].includes(ext);
+                    const isPpt = ["ppt", "pptx"].includes(ext);
+
+                    // Can browser open natively? PDF yes, others download
+                    const canPreview = isPdf;
+
+                    // Choose icon color & label per type
+                    const fileColor = isPdf ? "#E53935" : isWord ? "#1565C0" : isExcel ? "#2E7D32" : isPpt ? "#E64A19" : "#6E56CF";
+                    const fileBg = isPdf ? "#FFEBEE" : isWord ? "#E3F2FD" : isExcel ? "#E8F5E9" : isPpt ? "#FBE9E7" : "#EDE9FF";
+                    const fileLabel = isPdf ? "PDF" : isWord ? "DOC" : isExcel ? "XLS" : isPpt ? "PPT" : ext.toUpperCase() || "FILE";
+
+                    const handleOpen = (e) => {
+                      e?.stopPropagation();
+                      setActiveDocAttachment(msg.attachment);
+                    };
+
+                    return (
+                      <div
+                        className="attachment-file-card"
+                        onClick={handleOpen}
+                        title={canPreview ? `เปิดดู ${msg.attachment.fileName}` : `ดาวน์โหลด ${msg.attachment.fileName}`}
+                      >
+                        {/* File Type Badge Icon */}
+                        <div className="attachment-file-icon-wrap" style={{ background: fileBg }}>
+                          <div className="attachment-file-ext-badge" style={{ color: fileColor }}>
+                            <FileText size={22} color={fileColor} />
+                          </div>
+                        </div>
+
+                        {/* File Info */}
+                        <div className="attachment-file-info">
+                          <span className="attachment-file-name">{msg.attachment.fileName}</span>
+                          <div className="attachment-file-meta">
+                            <span className="attachment-file-type-pill" style={{ background: fileBg, color: fileColor }}>
+                              {fileLabel}
+                            </span>
+                            <span className="attachment-file-size">{msg.attachment.fileSize}</span>
+                          </div>
+                        </div>
+
+                        {/* Open / Download icon */}
+                        {msg.attachment.url && (
+                          <div className="attachment-open-icon">
+                            <ExternalLink size={14} color="#8E8A9F" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   {/* Hover Action Toolbar on Right for Received Messages matching sample screenshot: ⋮ ↵ ☺ */}
                   {!isSentByMe && (
                     <div className={`message-hover-actions ${isMenuOpen || emojiPickerMsgId === msg.id ? "active" : ""}`}>
@@ -673,74 +741,6 @@ export default function MessageList({
                     )}
                   </div>
                 )}
-
-                {/* Attachments */}
-                {msg.imageAttachment && msg.imageAttachment.url && (
-                  <div
-                    className="message-image-wrapper"
-                    onClick={() => onOpenPhotoViewer(msg.imageAttachment)}
-                  >
-                    <img
-                      src={msg.imageAttachment.url}
-                      alt={msg.imageAttachment.fileName}
-                      className="message-attached-img"
-                    />
-                  </div>
-                )}
-
-                {msg.attachment && (() => {
-                  const ext = (msg.attachment.fileType || msg.attachment.fileName?.split(".").pop() || "").toLowerCase();
-                  const isPdf = ext === "pdf";
-                  const isWord = ["doc", "docx"].includes(ext);
-                  const isExcel = ["xls", "xlsx"].includes(ext);
-                  const isPpt = ["ppt", "pptx"].includes(ext);
-
-                  // Can browser open natively? PDF yes, others download
-                  const canPreview = isPdf;
-
-                  // Choose icon color & label per type
-                  const fileColor = isPdf ? "#E53935" : isWord ? "#1565C0" : isExcel ? "#2E7D32" : isPpt ? "#E64A19" : "#6E56CF";
-                  const fileBg = isPdf ? "#FFEBEE" : isWord ? "#E3F2FD" : isExcel ? "#E8F5E9" : isPpt ? "#FBE9E7" : "#EDE9FF";
-                  const fileLabel = isPdf ? "PDF" : isWord ? "DOC" : isExcel ? "XLS" : isPpt ? "PPT" : ext.toUpperCase() || "FILE";
-
-                  const handleOpen = (e) => {
-                    e?.stopPropagation();
-                    setActiveDocAttachment(msg.attachment);
-                  };
-
-                  return (
-                    <div
-                      className="attachment-file-card"
-                      onClick={handleOpen}
-                      title={canPreview ? `เปิดดู ${msg.attachment.fileName}` : `ดาวน์โหลด ${msg.attachment.fileName}`}
-                    >
-                      {/* File Type Badge Icon */}
-                      <div className="attachment-file-icon-wrap" style={{ background: fileBg }}>
-                        <div className="attachment-file-ext-badge" style={{ color: fileColor }}>
-                          <FileText size={22} color={fileColor} />
-                        </div>
-                      </div>
-
-                      {/* File Info */}
-                      <div className="attachment-file-info">
-                        <span className="attachment-file-name">{msg.attachment.fileName}</span>
-                        <div className="attachment-file-meta">
-                          <span className="attachment-file-type-pill" style={{ background: fileBg, color: fileColor }}>
-                            {fileLabel}
-                          </span>
-                          <span className="attachment-file-size">{msg.attachment.fileSize}</span>
-                        </div>
-                      </div>
-
-                      {/* Open / Download icon */}
-                      {msg.attachment.url && (
-                        <div className="attachment-open-icon">
-                          <ExternalLink size={14} color="#8E8A9F" />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
 
                 {/* Emoji Reactions Row */}
                 {msg.reactions && msg.reactions.length > 0 && (
