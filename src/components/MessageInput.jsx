@@ -371,7 +371,7 @@ export default function MessageInput({ onSendMessage, activeChatName, onTyping, 
               <button
                 className="send-btn"
                 onClick={handleSend}
-                disabled={!text.trim() && !pendingAttachment}
+                disabled={!text.trim() && pendingAttachments.length === 0}
               >
                 <span>ส่งข้อความ</span>
                 <Send size={14} />
