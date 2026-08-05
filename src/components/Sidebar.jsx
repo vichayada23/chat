@@ -408,33 +408,36 @@ export default function Sidebar({
               }}
               style={{ position: "relative" }}
             >
-              <div className="nav-item-left" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", width: "100%" }}>
-                  <div className="avatar-wrapper" style={{ width: "24px", height: "24px", flexShrink: 0 }}>
-                    <img
-                      src={dm.avatar}
-                      alt={dm.name}
-                      className="avatar-img"
-                      style={{ width: "24px", height: "24px" }}
-                    />
-                    <span
-                      className={`status-dot status-${dm.status}`}
-                      style={{ width: "8px", height: "8px", border: "1px solid white" }}
-                    />
-                  </div>
-                  <span className="nav-item-name">{dm.name}</span>
-                  {dm.unread > 0 && !dm.isMuted && (
-                    <span className="unread-badge" style={{ marginLeft: "4px" }}>{dm.unread}</span>
-                  )}
-                  {dm.isPinned && <Pin size={12} color="var(--purple-primary)" style={{ marginLeft: "2px" }} />}
-                  {dm.isMuted && <BellOff size={12} color="var(--text-muted)" style={{ marginLeft: "2px" }} />}
+              <div className="nav-item-left" style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "10px" }}>
+                <div className="avatar-wrapper" style={{ width: "32px", height: "32px", flexShrink: 0 }}>
+                  <img
+                    src={dm.avatar}
+                    alt={dm.name}
+                    className="avatar-img"
+                    style={{ width: "32px", height: "32px" }}
+                  />
+                  <span
+                    className={`status-dot status-${dm.status}`}
+                    style={{ width: "9px", height: "9px", border: "1.5px solid white" }}
+                  />
                 </div>
-                <div style={{ fontSize: "10.5px", color: "var(--text-muted)", paddingLeft: "30px", marginTop: "1px" }}>
-                  อ่านเมื่อ {dm.lastReadTime || "09:19 น."}
+                <div style={{ display: "flex", flexDirection: "column", minWidth: 0, flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                    <span className="nav-item-name" style={{ fontWeight: 600, fontSize: "13px" }}>{dm.name}</span>
+                    {dm.isPinned && <Pin size={12} color="var(--purple-primary)" />}
+                    {dm.isMuted && <BellOff size={12} color="var(--text-muted)" />}
+                  </div>
+                  <div style={{ fontSize: "10.5px", color: "var(--text-muted)", marginTop: "1px" }}>
+                    อ่านเมื่อ {dm.lastReadTime || "16:33 น."}
+                  </div>
                 </div>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                {dm.unread > 0 && !dm.isMuted && (
+                  <span className="unread-badge">{dm.unread}</span>
+                )}
+
                 <button
                   className="chat-three-dots-btn"
                   onClick={(e) => toggleMenu(e, dm.id)}

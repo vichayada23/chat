@@ -2218,12 +2218,17 @@ html, body {
 }
 
 .unread-badge {
-  background-color: var(--purple-primary);
-  color: white;
+  background-color: #CC0000;
+  color: #ffffff;
   font-size: 11px;
   font-weight: 700;
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(204, 0, 0, 0.4);
 }
 
 /* Main Chat Workspace */
