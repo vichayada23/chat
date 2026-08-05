@@ -680,13 +680,13 @@ export default function MessageList({
                 {isSentByMe && (
                   <div className="message-read-status-row">
                     {readByList.length > 0 ? (
-                      /* Show circular profile picture avatar(s) of reader(s) */
+                      /* Show up to 3 circular profile picture avatars, 4th+ shows +N อื่นๆ badge */
                       <div
                         className="read-by-avatars-container"
-                        title={`อ่านแล้วโดย: ${readByList.map((r) => (typeof r === "object" ? r.name || r.email : r)).join(", ")}`}
+                        title={`อ่านแล้วโดย (${readByList.length} คน):\n${readByList.map((r) => (typeof r === "object" ? r.name || r.email : r)).join("\n")}`}
                       >
                         <div className="read-by-avatars-group">
-                          {readByList.slice(0, 4).map((reader, idx) => {
+                          {readByList.slice(0, 3).map((reader, idx) => {
                             const rName = typeof reader === "object" ? (reader.name || reader.email) : reader;
                             const rAvatar = (typeof reader === "object" ? reader.avatar : null) || getRegisteredNameAndAvatar(rName, rName).avatar || "/default-avatar.svg";
 
@@ -696,13 +696,16 @@ export default function MessageList({
                                 src={rAvatar}
                                 alt={rName || "สมาชิก"}
                                 className="read-by-avatar-img"
-                                title={`อ่านแล้วโดย ${rName}`}
+                                title={`อ่านแล้วโดย: ${rName}`}
                               />
                             );
                           })}
-                          {readByList.length > 4 && (
-                            <span className="read-by-more-badge">
-                              +{readByList.length - 4}
+                          {readByList.length > 3 && (
+                            <span
+                              className="read-by-more-badge"
+                              title={`และคนอื่นๆ อีก ${readByList.length - 3} คน:\n${readByList.slice(3).map((r) => (typeof r === "object" ? r.name || r.email : r)).join("\n")}`}
+                            >
+                              +{readByList.length - 3} อื่นๆ
                             </span>
                           )}
                         </div>
