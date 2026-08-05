@@ -3,35 +3,34 @@
 export const normalize = (str) => (str || "").toLowerCase().trim();
 
 export const saveUserToRegisteredList = async (userData, supabase = null) => {
-  if (!userData || !userData.email) return;
-  const userEmail = normalize(userData.email);
-  const userName = userData.name || userEmail.split("@")[0];
+  if (!userData || (!userData.email && !userData.name)) return;
+
+  const userName = (userData.name || "").trim() || (userData.email ? userData.email.split("@")[0] : "ผู้ใช้งาน");
+  const userEmail = normalize(userData.email || `${userName.toLowerCase().replace(/\s+/g, "")}@pulse.app`);
   const userRole = userData.role || "Team Member";
 
   try {
     const raw = localStorage.getItem("pulse_connect_registered_users");
     let list = raw ? JSON.parse(raw) : [];
-    const index = list.findIndex((u) => u.email && normalize(u.email) === userEmail);
+    const index = list.findIndex(
+      (u) =>
+        (u.email && normalize(u.email) === userEmail) ||
+        (u.name && normalize(u.name) === normalize(userName))
+    );
+
+    const updatedUserObj = {
+      id: userData.id || (index !== -1 ? list[index].id : `u-${Date.now()}`),
+      name: userName,
+      role: userRole,
+      email: userEmail,
+      avatar: userData.avatar || (index !== -1 ? list[index].avatar : "/default-avatar.svg"),
+      password: userData.password || (index !== -1 ? list[index].password : ""),
+    };
 
     if (index !== -1) {
-      list[index] = {
-        ...list[index],
-        id: userData.id || list[index].id,
-        name: userName,
-        role: userRole,
-        email: userEmail,
-        avatar: userData.avatar || list[index].avatar || "/default-avatar.svg",
-        password: userData.password || list[index].password,
-      };
+      list[index] = { ...list[index], ...updatedUserObj };
     } else {
-      list.push({
-        id: userData.id,
-        name: userName,
-        role: userRole,
-        email: userEmail,
-        password: userData.password,
-        avatar: userData.avatar || "/default-avatar.svg",
-      });
+      list.push(updatedUserObj);
     }
     localStorage.setItem("pulse_connect_registered_users", JSON.stringify(list));
   } catch (err) {}
@@ -41,7 +40,7 @@ export const saveUserToRegisteredList = async (userData, supabase = null) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        id: userData.id,
+        id: userData.id || `u-${Date.now()}`,
         name: userName,
         role: userRole,
         email: userEmail,
