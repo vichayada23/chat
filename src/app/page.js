@@ -376,9 +376,27 @@ export default function Home() {
       if (!currentUser) return;
 
       const normalize = (str) => (str || "").toLowerCase().trim();
-      const userEmailNorm = normalize(currentUser.email || `${currentUser.id}@company.com`);
+      const userEmailNorm = normalize(currentUser.email || "");
       const userNameNorm = normalize(currentUser.name);
-      const userPrefixNorm = userEmailNorm.split("@")[0];
+      const userPrefixNorm = userEmailNorm ? userEmailNorm.split("@")[0] : "";
+
+      const isMockOrDummy = (r) => {
+        if (!r) return true;
+        const sEm = normalize(r.senderEmail);
+        const rEm = normalize(r.receiverEmail);
+        const sNm = normalize(r.senderName);
+        const rNm = normalize(r.receiverName);
+        return (
+          sEm.includes("@company.com") ||
+          rEm.includes("@company.com") ||
+          sNm.includes("ผู้ใช้งาน (User)") ||
+          rNm.includes("ผู้ใช้งาน (User)") ||
+          sEm === "user@company.com" ||
+          rEm === "user@company.com" ||
+          sNm === "user" ||
+          rNm === "user"
+        );
+      };
 
       try {
         const globalRaw = localStorage.getItem("pulse_connect_global_friend_requests");
@@ -391,6 +409,7 @@ export default function Home() {
             const data = await res.json();
             if (data && data.requests && data.requests.length > 0) {
               data.requests.forEach((reqObj) => {
+                if (isMockOrDummy(reqObj)) return;
                 const existingIdx = globalList.findIndex(
                   (g) =>
                     g.id === reqObj.id ||
@@ -410,6 +429,11 @@ export default function Home() {
               });
             }
           }
+        } catch (err) {}
+
+        globalList = globalList.filter((g) => !isMockOrDummy(g));
+        try {
+          localStorage.setItem("pulse_connect_global_friend_requests", JSON.stringify(globalList));
         } catch (err) {}
 
         const isReceiver = (r) => {
@@ -534,7 +558,7 @@ export default function Home() {
 
         // 1. Incoming pending requests for currentUser (not yet in directMessages)
         const incoming = globalList.filter((r) => {
-          if (!isReceiver(r) || r.status !== "pending") return false;
+          if (!isReceiver(r) || r.status !== "pending" || isMockOrDummy(r)) return false;
           const sEmail = normalize(r.senderEmail);
           const sName = normalize(r.senderName);
           const sPrefix = sEmail ? sEmail.split("@")[0] : "";
@@ -549,7 +573,7 @@ export default function Home() {
 
         // 2. Sent pending requests from currentUser (not yet in directMessages)
         const sent = globalList.filter((r) => {
-          if (!isSender(r) || r.status !== "pending") return false;
+          if (!isSender(r) || r.status !== "pending" || isMockOrDummy(r)) return false;
           const rEmail = normalize(r.receiverEmail);
           const rName = normalize(r.receiverName);
           const rPrefix = rEmail ? rEmail.split("@")[0] : "";
@@ -1790,8 +1814,8 @@ export default function Home() {
     const inputName = (newFriend.name || "").trim();
     const partnerInfo = getRegisteredNameAndAvatar(newFriend.email, inputName);
     const targetName = partnerInfo.name || inputName;
-    const userEmail = (currentUser.email || `${currentUser.id}@company.com`).toLowerCase().trim();
-    const targetEmail = (newFriend.email || `${targetName.toLowerCase().replace(/\s+/g, "")}@company.com`).toLowerCase().trim();
+    const userEmail = (currentUser.email || "").toLowerCase().trim();
+    const targetEmail = (newFriend.email || "").toLowerCase().trim();
 
     const globalRaw = localStorage.getItem("pulse_connect_global_friend_requests");
     const globalList = globalRaw ? JSON.parse(globalRaw) : [];
