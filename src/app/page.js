@@ -1263,8 +1263,9 @@ export default function Home() {
         prev.map((ch) => (ch.id === id ? { ...ch, unread: 0 } : ch))
       );
     } else {
+      const nowTimeStr = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }) + " น.";
       setDirectMessages((prev) =>
-        prev.map((dm) => (dm.id === id ? { ...dm, unread: 0 } : dm))
+        prev.map((dm) => (dm.id === id ? { ...dm, unread: 0, lastReadTime: nowTimeStr } : dm))
       );
     }
   };

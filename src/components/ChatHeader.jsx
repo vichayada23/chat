@@ -99,7 +99,7 @@ export default function ChatHeader({
             <div className="chat-subtitle">
               {isChannel
                 ? `📌 ${activeChat.topic} • สมาชิก ${activeChat.membersCount} คน`
-                : `🟢 ${activeChat.role} • ออนไลน์`}
+                : (activeChat.lastReadTime ? `🟢 ${activeChat.role} • อ่านเมื่อ ${activeChat.lastReadTime}` : `🟢 ${activeChat.role} • ออนไลน์`)}
             </div>
           </div>
         )}

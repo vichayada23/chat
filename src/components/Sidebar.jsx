@@ -188,15 +188,14 @@ export default function Sidebar({
                   {renderChannelIcon(ch.iconId)}
                 </span>
                 <span className="nav-item-name">{ch.name}</span>
+                {ch.unread > 0 && !ch.isMuted && (
+                  <span className="unread-badge" style={{ marginLeft: "4px" }}>{ch.unread}</span>
+                )}
                 {ch.isPinned && <Pin size={12} color="var(--purple-primary)" style={{ marginLeft: "2px" }} />}
                 {ch.isMuted && <BellOff size={12} color="var(--text-muted)" style={{ marginLeft: "2px" }} />}
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                {ch.unread > 0 && !ch.isMuted && (
-                  <span className="unread-badge">{ch.unread}</span>
-                )}
-
                 <button
                   className="chat-three-dots-btn"
                   onClick={(e) => toggleMenu(e, ch.id)}
@@ -409,29 +408,33 @@ export default function Sidebar({
               }}
               style={{ position: "relative" }}
             >
-              <div className="nav-item-left">
-                <div className="avatar-wrapper" style={{ width: "24px", height: "24px" }}>
-                  <img
-                    src={dm.avatar}
-                    alt={dm.name}
-                    className="avatar-img"
-                    style={{ width: "24px", height: "24px" }}
-                  />
-                  <span
-                    className={`status-dot status-${dm.status}`}
-                    style={{ width: "8px", height: "8px", border: "1px solid white" }}
-                  />
+              <div className="nav-item-left" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", width: "100%" }}>
+                  <div className="avatar-wrapper" style={{ width: "24px", height: "24px", flexShrink: 0 }}>
+                    <img
+                      src={dm.avatar}
+                      alt={dm.name}
+                      className="avatar-img"
+                      style={{ width: "24px", height: "24px" }}
+                    />
+                    <span
+                      className={`status-dot status-${dm.status}`}
+                      style={{ width: "8px", height: "8px", border: "1px solid white" }}
+                    />
+                  </div>
+                  <span className="nav-item-name">{dm.name}</span>
+                  {dm.unread > 0 && !dm.isMuted && (
+                    <span className="unread-badge" style={{ marginLeft: "4px" }}>{dm.unread}</span>
+                  )}
+                  {dm.isPinned && <Pin size={12} color="var(--purple-primary)" style={{ marginLeft: "2px" }} />}
+                  {dm.isMuted && <BellOff size={12} color="var(--text-muted)" style={{ marginLeft: "2px" }} />}
                 </div>
-                <span className="nav-item-name">{dm.name}</span>
-                {dm.isPinned && <Pin size={12} color="var(--purple-primary)" style={{ marginLeft: "2px" }} />}
-                {dm.isMuted && <BellOff size={12} color="var(--text-muted)" style={{ marginLeft: "2px" }} />}
+                <div style={{ fontSize: "10.5px", color: "var(--text-muted)", paddingLeft: "30px", marginTop: "1px" }}>
+                  อ่านเมื่อ {dm.lastReadTime || "09:19 น."}
+                </div>
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                {dm.unread > 0 && !dm.isMuted && (
-                  <span className="unread-badge">{dm.unread}</span>
-                )}
-
                 <button
                   className="chat-three-dots-btn"
                   onClick={(e) => toggleMenu(e, dm.id)}
