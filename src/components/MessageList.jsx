@@ -70,6 +70,25 @@ export default function MessageList({
     return Math.max(0, Math.floor((nowTime - sentTime) / 1000));
   };
   
+  // Calculate map of readerKey -> ID of the LATEST message they have read
+  const latestMessageIdPerReader = useMemo(() => {
+    const map = new Map();
+    if (!messages || !Array.isArray(messages)) return map;
+
+    messages.forEach((m) => {
+      if (m && m.readBy && Array.isArray(m.readBy)) {
+        m.readBy.forEach((r) => {
+          const key = typeof r === "object" ? (r.id || r.name || r.email) : r;
+          if (key) {
+            map.set(key, m.id);
+          }
+        });
+      }
+    });
+
+    return map;
+  }, [messages]);
+
   const feedRef = useRef(null);
   const bottomRef = useRef(null);
   const isUserScrolledUpRef = useRef(false);
@@ -312,8 +331,11 @@ export default function MessageList({
             const isEditingThis = editingMsgId === msg.id;
             const isMenuOpen = menuOpenMsgId === msg.id;
             const isShowingHistory = showingHistoryMsgId === msg.id;
-            const repliesList = threadsState[msg.id] || [];
-            const readByList = msg.readBy || [];
+            const allReadByList = msg.readBy || [];
+            const readByList = allReadByList.filter((r) => {
+              const key = typeof r === "object" ? (r.id || r.name || r.email) : r;
+              return latestMessageIdPerReader.get(key) === msg.id;
+            });
             const isGroupChat = activeChat?.type === "group" || (activeId && activeId.startsWith("c-"));
 
             const resolvedSender = isSentByMe
