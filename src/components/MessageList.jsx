@@ -89,6 +89,24 @@ export default function MessageList({
     return map;
   }, [messages]);
 
+  // Set of message IDs that have at least one later message read by someone
+  const messagesWithLaterReadsSet = useMemo(() => {
+    const set = new Set();
+    if (!messages || !Array.isArray(messages)) return set;
+
+    let hasSeenRead = false;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (hasSeenRead && m && m.id) {
+        set.add(m.id);
+      }
+      if (m && m.readBy && Array.isArray(m.readBy) && m.readBy.length > 0) {
+        hasSeenRead = true;
+      }
+    }
+    return set;
+  }, [messages]);
+
   const feedRef = useRef(null);
   const bottomRef = useRef(null);
   const isUserScrolledUpRef = useRef(false);
@@ -740,6 +758,9 @@ export default function MessageList({
                           เพิ่งเห็น
                         </span>
                       )
+                    ) : messagesWithLaterReadsSet.has(msg.id) ? (
+                      /* Hide read status on previous messages immediately when a newer message is read */
+                      null
                     ) : (
                       (() => {
                         const ageSec = getMessageAgeSeconds(msg);
