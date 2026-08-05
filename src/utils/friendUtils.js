@@ -36,19 +36,19 @@ export const saveUserToRegisteredList = async (userData, supabase = null) => {
     localStorage.setItem("pulse_connect_registered_users", JSON.stringify(list));
   } catch (err) {}
 
-  if (supabase) {
-    try {
-      await supabase.from("users").upsert([
-        {
-          id: userData.id,
-          name: userName,
-          role: userRole,
-          email: userEmail,
-          avatar: userData.avatar || "/default-avatar.svg",
-        },
-      ]);
-    } catch (err) {}
-  }
+  try {
+    fetch("/api/sync-user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: userData.id,
+        name: userName,
+        role: userRole,
+        email: userEmail,
+        avatar: userData.avatar || "/default-avatar.svg",
+      }),
+    }).catch(() => {});
+  } catch (err) {}
 };
 
 export const getRegisteredNameAndAvatar = (email, fallbackName) => {

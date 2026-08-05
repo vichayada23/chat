@@ -82,6 +82,29 @@ export default function AddFriendModal({ isOpen, onClose, onAddFriend, currentUs
         }
       } catch (err) {}
 
+      try {
+        const res = await fetch("/api/sync-user");
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.users && data.users.length > 0) {
+            data.users.forEach((u) => {
+              if (!u || (!u.name && !u.email)) return;
+              const uName = (u.name || "").toLowerCase().trim();
+              const uEmail = (u.email || "").toLowerCase().trim();
+              const uPrefix = uEmail ? uEmail.split("@")[0] : "";
+
+              if (myNameNorm && uName === myNameNorm) return;
+              if (myEmailNorm && uEmail === myEmailNorm) return;
+              if (myPrefix && uPrefix === myPrefix) return;
+
+              if (!usersList.some((x) => (x.email && u.email && x.email.toLowerCase().trim() === uEmail) || (x.name && uName && x.name.toLowerCase().trim() === uName))) {
+                usersList.push(u);
+              }
+            });
+          }
+        }
+      } catch (err) {}
+
       if (supabase) {
         try {
           const { data: dbUsers } = await supabase.from("users").select("*");
