@@ -9,6 +9,8 @@ export default function AddFriendModal({ isOpen, onClose, onAddFriend, currentUs
   const [selectedUserObj, setSelectedUserObj] = useState(null);
   const [registeredUsers, setRegisteredUsers] = useState([]);
 
+  const [errorMessage, setErrorMessage] = useState("");
+
   const myNameNorm = (currentUser?.name || "").toLowerCase().trim();
   const myEmailNorm = (currentUser?.email || "").toLowerCase().trim();
   const myPrefix = myEmailNorm ? myEmailNorm.split("@")[0] : "";
@@ -36,13 +38,16 @@ export default function AddFriendModal({ isOpen, onClose, onAddFriend, currentUs
     if (!nameInput.trim()) return false;
     const inputNorm = nameInput.toLowerCase().trim();
     return (directMessages || []).some(
-      (dm) => dm.name && dm.name.toLowerCase().trim() === inputNorm
+      (dm) =>
+        (dm.name && dm.name.toLowerCase().trim() === inputNorm) ||
+        (dm.email && dm.email.toLowerCase().trim() === inputNorm)
     );
   };
 
   const handleCloseModal = () => {
     setNameInput("");
     setSelectedUserObj(null);
+    setErrorMessage("");
     onClose();
   };
 
@@ -51,6 +56,7 @@ export default function AddFriendModal({ isOpen, onClose, onAddFriend, currentUs
 
     setNameInput("");
     setSelectedUserObj(null);
+    setErrorMessage("");
 
     async function loadUsers() {
       const usersList = [];
@@ -60,6 +66,7 @@ export default function AddFriendModal({ isOpen, onClose, onAddFriend, currentUs
         if (localUsers) {
           const parsed = JSON.parse(localUsers);
           parsed.forEach((u) => {
+            if (!u || !u.name) return;
             const uName = (u.name || "").toLowerCase().trim();
             const uEmail = (u.email || "").toLowerCase().trim();
             const uPrefix = uEmail ? uEmail.split("@")[0] : "";
@@ -68,7 +75,7 @@ export default function AddFriendModal({ isOpen, onClose, onAddFriend, currentUs
             if (myEmailNorm && uEmail === myEmailNorm) return;
             if (myPrefix && uPrefix === myPrefix) return;
 
-            if (u.name && !usersList.some((x) => x.name.toLowerCase() === u.name.toLowerCase())) {
+            if (!usersList.some((x) => (x.email && u.email && x.email.toLowerCase() === u.email.toLowerCase()) || x.name.toLowerCase() === uName)) {
               usersList.push(u);
             }
           });
@@ -80,6 +87,7 @@ export default function AddFriendModal({ isOpen, onClose, onAddFriend, currentUs
           const { data: dbUsers } = await supabase.from("users").select("*");
           if (dbUsers && dbUsers.length > 0) {
             dbUsers.forEach((u) => {
+              if (!u) return;
               const uName = u.name || (u.email ? u.email.split("@")[0] : "สมาชิกองค์กร");
               const uNormName = uName.toLowerCase().trim();
               const uNormEmail = (u.email || "").toLowerCase().trim();
@@ -89,11 +97,11 @@ export default function AddFriendModal({ isOpen, onClose, onAddFriend, currentUs
               if (myEmailNorm && uNormEmail === myEmailNorm) return;
               if (myPrefix && uPrefix === myPrefix) return;
 
-              if (!usersList.some((x) => x.name.toLowerCase().trim() === uNormName)) {
+              if (!usersList.some((x) => (x.email && u.email && x.email.toLowerCase().trim() === uNormEmail) || x.name.toLowerCase().trim() === uNormName)) {
                 usersList.push({
-                  id: `u-${u.id}`,
+                  id: u.id ? (String(u.id).startsWith("u-") ? String(u.id) : `u-${u.id}`) : `u-${Date.now()}`,
                   name: uName,
-                  email: u.email,
+                  email: u.email || `${uNormName}@company.com`,
                   role: u.role || "Team Member",
                   avatar: u.avatar || "/default-avatar.svg",
                 });
@@ -123,8 +131,9 @@ export default function AddFriendModal({ isOpen, onClose, onAddFriend, currentUs
     if (myPrefix && uPrefix === myPrefix) return false;
 
     return (
-      (u.name && uName.includes(searchQuery)) ||
-      (u.email && uPrefix.includes(searchQuery))
+      uName.includes(searchQuery) ||
+      uEmail.includes(searchQuery) ||
+      uPrefix.includes(searchQuery)
     );
   });
 
@@ -132,23 +141,41 @@ export default function AddFriendModal({ isOpen, onClose, onAddFriend, currentUs
     if (isAlreadyFriend(u)) return;
     setNameInput(u.name);
     setSelectedUserObj(u);
+    setErrorMessage("");
   };
 
   const handleAddFriendSubmit = (e) => {
     e.preventDefault();
-    if (!nameInput.trim() || isInputAlreadyFriend()) return;
+    setErrorMessage("");
+    if (!nameInput.trim()) return;
 
-    const friendName = nameInput.trim();
-    const matchedUser = selectedUserObj || registeredUsers.find(
-      (u) => u.name && u.name.toLowerCase().trim() === friendName.toLowerCase()
-    ) || searchResults[0];
+    if (isInputAlreadyFriend()) {
+      setErrorMessage("ผู้ใช้งานนี้เป็นเพื่อนในรายการแชทอยู่แล้ว");
+      return;
+    }
+
+    const inputNorm = nameInput.trim().toLowerCase();
+    const matchedUser =
+      selectedUserObj ||
+      registeredUsers.find(
+        (u) =>
+          (u.name && u.name.toLowerCase().trim() === inputNorm) ||
+          (u.email && u.email.toLowerCase().trim() === inputNorm) ||
+          (u.email && u.email.split("@")[0].toLowerCase().trim() === inputNorm)
+      ) ||
+      searchResults[0];
+
+    if (!matchedUser || !matchedUser.email) {
+      setErrorMessage("ไม่พบชื่อหรืออีเมลผู้ใช้งานนี้ในระบบ (กรุณาเลือกจากผลการค้นหาด้านล่าง)");
+      return;
+    }
 
     onAddFriend({
-      id: `dm-${Date.now()}`,
-      name: matchedUser?.name || friendName,
-      role: "Team Member",
-      email: matchedUser?.email || `${friendName.toLowerCase().replace(/\s+/g, "")}@company.com`,
-      avatar: matchedUser?.avatar || "/default-avatar.svg",
+      id: matchedUser.id || `dm-${Date.now()}`,
+      name: matchedUser.name,
+      role: matchedUser.role || "Team Member",
+      email: matchedUser.email,
+      avatar: matchedUser.avatar || "/default-avatar.svg",
       status: "online",
       unread: 0,
       lastSeen: "ออนไลน์ในขณะนี้",
@@ -156,6 +183,7 @@ export default function AddFriendModal({ isOpen, onClose, onAddFriend, currentUs
 
     setNameInput("");
     setSelectedUserObj(null);
+    setErrorMessage("");
     onClose();
   };
 
@@ -180,6 +208,12 @@ export default function AddFriendModal({ isOpen, onClose, onAddFriend, currentUs
 
         {/* Modal Form */}
         <form onSubmit={handleAddFriendSubmit} className="modal-body">
+          {errorMessage && (
+            <div style={{ padding: "8px 12px", background: "#FFEBEE", border: "1px solid #FFCDD2", color: "#D32F2F", borderRadius: "8px", fontSize: "13px", marginBottom: "12px" }}>
+              ⚠️ {errorMessage}
+            </div>
+          )}
+
           {/* Display Name Input */}
           <div className="form-group">
             <label className="form-label" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
