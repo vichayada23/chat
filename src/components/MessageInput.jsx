@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Paperclip, Smile, Mic, Send, X, Play, Pause, Square } from "lucide-react";
+import { Paperclip, Smile, Mic, Send, X, Play, Pause, Square, AlertCircle } from "lucide-react";
 
 const EMOJI_LIST = [
   "👍", "❤️", "💜", "🚀", "😊", "🎉", "💯", "📊", 
@@ -11,8 +11,10 @@ const EMOJI_LIST = [
 export default function MessageInput({ onSendMessage, activeChatName, onTyping, onStopTyping }) {
   const [text, setText] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [pendingAttachment, setPendingAttachment] = useState(null);
-  
+  const [pendingAttachments, setPendingAttachments] = useState([]);
+  const [limitWarning, setLimitWarning] = useState("");
+  const warningTimerRef = useRef(null);
+
   // Voice Recording States
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -34,17 +36,35 @@ export default function MessageInput({ onSendMessage, activeChatName, onTyping, 
     };
   }, [isRecording]);
 
+  const showLimitWarningPopup = () => {
+    setLimitWarning("ไม่สามารถอัพเกิน 5 รูปได้");
+    if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
+    warningTimerRef.current = setTimeout(() => {
+      setLimitWarning("");
+    }, 5000);
+  };
+
   const handleSend = () => {
-    if (!text.trim() && !pendingAttachment) return;
+    if (!text.trim() && pendingAttachments.length === 0) return;
     
     if (onStopTyping) onStopTyping();
-    onSendMessage({
-      text: text.trim(),
-      attachment: pendingAttachment,
-    });
+
+    if (pendingAttachments.length > 0) {
+      pendingAttachments.forEach((att, idx) => {
+        onSendMessage({
+          text: idx === 0 ? text.trim() : "",
+          attachment: att,
+        });
+      });
+    } else {
+      onSendMessage({
+        text: text.trim(),
+        attachment: null,
+      });
+    }
 
     setText("");
-    setPendingAttachment(null);
+    setPendingAttachments([]);
     setShowEmojiPicker(false);
   };
 
@@ -63,55 +83,86 @@ export default function MessageInput({ onSendMessage, activeChatName, onTyping, 
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    const isImage = file.type.startsWith("image/");
+    if (pendingAttachments.length >= 5 || files.length > 5 || pendingAttachments.length + files.length > 5) {
+      showLimitWarningPopup();
+    }
 
-    if (isImage) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        // Compress image via canvas (max 800px wide, JPEG quality 0.72)
-        const img = new window.Image();
-        img.onload = () => {
-          const MAX_W = 800;
-          let w = img.width;
-          let h = img.height;
-          if (w > MAX_W) {
-            h = Math.round((h * MAX_W) / w);
-            w = MAX_W;
-          }
-          const canvas = document.createElement("canvas");
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, w, h);
-          const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.72);
-          setPendingAttachment({
-            file,
-            url: compressedDataUrl,
-            fileName: file.name,
-            fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-            isImage: true,
+    const availableSlots = 5 - pendingAttachments.length;
+    if (availableSlots <= 0) {
+      e.target.value = "";
+      return;
+    }
+
+    const allowedFiles = files.slice(0, availableSlots);
+    allowedFiles.forEach((file) => {
+      const isImage = file.type.startsWith("image/");
+
+      if (isImage) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new window.Image();
+          img.onload = () => {
+            const MAX_W = 800;
+            let w = img.width;
+            let h = img.height;
+            if (w > MAX_W) {
+              h = Math.round((h * MAX_W) / w);
+              w = MAX_W;
+            }
+            const canvas = document.createElement("canvas");
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, w, h);
+            const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.72);
+            setPendingAttachments((prev) => {
+              if (prev.length >= 5) return prev;
+              return [
+                ...prev,
+                {
+                  id: `att-${Date.now()}-${Math.random()}`,
+                  file,
+                  url: compressedDataUrl,
+                  fileName: file.name,
+                  fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+                  isImage: true,
+                },
+              ];
+            });
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      } else {
+        const docReader = new FileReader();
+        docReader.onload = (ev) => {
+          setPendingAttachments((prev) => {
+            if (prev.length >= 5) return prev;
+            return [
+              ...prev,
+              {
+                id: `att-${Date.now()}-${Math.random()}`,
+                file,
+                url: ev.target.result,
+                fileName: file.name,
+                fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+                isImage: false,
+              },
+            ];
           });
         };
-        img.src = event.target.result;
-      };
-      reader.readAsDataURL(file);
-    } else {
-      // Read document files as base64 DataURL so they can be shared via Supabase
-      const docReader = new FileReader();
-      docReader.onload = (ev) => {
-        setPendingAttachment({
-          file,
-          url: ev.target.result,
-          fileName: file.name,
-          fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-          isImage: false,
-        });
-      };
-      docReader.readAsDataURL(file);
-    }
+        docReader.readAsDataURL(file);
+      }
+    });
+
+    e.target.value = "";
+  };
+
+  const handleRemovePendingAttachment = (idToRemove) => {
+    setPendingAttachments((prev) => prev.filter((a, idx) => a.id !== idToRemove && idx !== idToRemove));
   };
 
   // 2. Emoji Insertion
@@ -153,8 +204,37 @@ export default function MessageInput({ onSendMessage, activeChatName, onTyping, 
         ref={fileInputRef}
         style={{ display: "none" }}
         accept="image/*,.pdf,.doc,.docx,.png,.jpg"
+        multiple
         onChange={handleFileChange}
       />
+
+      {/* Pop-up Alert when selecting more than 5 images (auto disappears after 5s) */}
+      {limitWarning && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "85px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(220, 38, 38, 0.95)",
+            color: "#FFFFFF",
+            padding: "10px 18px",
+            borderRadius: "30px",
+            fontSize: "13px",
+            fontWeight: 600,
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            boxShadow: "0 10px 25px rgba(220, 38, 38, 0.35)",
+            backdropFilter: "blur(8px)",
+            zIndex: 9999,
+            animation: "fadeInUp 0.3s ease-out",
+          }}
+        >
+          <AlertCircle size={18} color="#FFFFFF" />
+          <span>{limitWarning}</span>
+        </div>
+      )}
 
       {/* Emoji Picker Popover */}
       {showEmojiPicker && (
@@ -182,31 +262,35 @@ export default function MessageInput({ onSendMessage, activeChatName, onTyping, 
         </div>
       )}
 
-      {/* Pending Attachment Preview Banner */}
-      {pendingAttachment && (
-        <div className="pending-attachment-banner">
-          {pendingAttachment.isImage ? (
-            <img
-              src={pendingAttachment.url}
-              alt="รูปภาพแนบ"
-              className="pending-thumb-img"
-            />
-          ) : (
-            <>
-              <div className="pending-file-icon">📄</div>
-              <div className="pending-file-info">
-                <div className="pending-file-name">{pendingAttachment.fileName}</div>
-                <div className="pending-file-size">{pendingAttachment.fileSize}</div>
-              </div>
-            </>
-          )}
-          <button
-            className="tool-btn"
-            onClick={() => setPendingAttachment(null)}
-            title="ยกเลิกไฟล์แนบ"
-          >
-            <X size={16} />
-          </button>
+      {/* Pending Attachments Preview Banner Group */}
+      {pendingAttachments.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", padding: "8px 12px", background: "var(--bg-canvas)", borderTop: "1px solid var(--border-color)" }}>
+          {pendingAttachments.map((att, idx) => (
+            <div key={att.id || idx} className="pending-attachment-banner" style={{ margin: 0 }}>
+              {att.isImage ? (
+                <img
+                  src={att.url}
+                  alt="รูปภาพแนบ"
+                  className="pending-thumb-img"
+                />
+              ) : (
+                <>
+                  <div className="pending-file-icon">📄</div>
+                  <div className="pending-file-info">
+                    <div className="pending-file-name">{att.fileName}</div>
+                    <div className="pending-file-size">{att.fileSize}</div>
+                  </div>
+                </>
+              )}
+              <button
+                className="tool-btn"
+                onClick={() => handleRemovePendingAttachment(att.id || idx)}
+                title="ยกเลิกไฟล์แนบ"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
