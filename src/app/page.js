@@ -21,7 +21,7 @@ import CreateNoteModal from "../components/CreateNoteModal";
 import ThreadReplyModal from "../components/ThreadReplyModal";
 import { MessageSquare, Sparkles, Plus, UserPlus, Menu, PanelLeftOpen } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
-import { playNotificationSound, getSharedDmChannelId as getSharedDmChannelIdFromUtils, getRegisteredNameAndAvatar, sortMessagesChronologically } from "../utils/friendUtils";
+import { playNotificationSound, getSharedDmChannelId as getSharedDmChannelIdFromUtils, saveUserToRegisteredList as saveUserToRegisteredListFromUtils, getRegisteredNameAndAvatar, sortMessagesChronologically } from "../utils/friendUtils";
 import { useChatSync } from "../hooks/useChatSync";
 import { useTypingSync } from "../hooks/useTypingSync";
 import {
@@ -297,6 +297,7 @@ export default function Home() {
     }
 
     const suffix = currentUser.id;
+    saveUserToRegisteredList(currentUser);
     try {
       const savedChannels = localStorage.getItem(`pulse_connect_channels_${suffix}`);
       const savedDms = localStorage.getItem(`pulse_connect_dms_${suffix}`);
@@ -1058,35 +1059,8 @@ export default function Home() {
   };
 
   const saveUserToRegisteredList = (userData) => {
-    if (!userData || !userData.email) return;
-    try {
-      const localUsers = localStorage.getItem("pulse_connect_registered_users");
-      let list = localUsers ? JSON.parse(localUsers) : [];
-      if (!list.some((u) => u.email && u.email.toLowerCase().trim() === userData.email.toLowerCase().trim())) {
-        list.push({
-          id: userData.id,
-          name: userData.name,
-          email: userData.email,
-          role: userData.role || "Team Member",
-          avatar: userData.avatar || "/default-avatar.svg",
-        });
-        localStorage.setItem("pulse_connect_registered_users", JSON.stringify(list));
-      }
-    } catch (err) {}
-
-    if (supabase) {
-      try {
-        supabase.from("users").insert([
-          {
-            name: userData.name,
-            email: userData.email,
-            role: userData.role || "Team Member",
-            avatar: userData.avatar || "/default-avatar.svg",
-            status: "online",
-          },
-        ]);
-      } catch (err) {}
-    }
+    if (!userData || (!userData.email && !userData.name)) return;
+    saveUserToRegisteredListFromUtils(userData, supabase);
   };
 
   const handleUpdateUserProfile = (newUserData) => {
