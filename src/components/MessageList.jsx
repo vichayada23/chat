@@ -331,6 +331,7 @@ export default function MessageList({
             const isEditingThis = editingMsgId === msg.id;
             const isMenuOpen = menuOpenMsgId === msg.id;
             const isShowingHistory = showingHistoryMsgId === msg.id;
+            const repliesList = threadsState[msg.id] || [];
             const allReadByList = msg.readBy || [];
             const readByList = allReadByList.filter((r) => {
               const key = typeof r === "object" ? (r.id || r.name || r.email) : r;
