@@ -70,15 +70,26 @@ export default function MessageList({
     return Math.max(0, Math.floor((nowTime - sentTime) / 1000));
   };
   
-  // Calculate map of readerKey -> ID of the LATEST message they have read
+  // Calculate map of readerKey -> ID of the LATEST message they have read (excluding current user)
   const latestMessageIdPerReader = useMemo(() => {
     const map = new Map();
     if (!messages || !Array.isArray(messages)) return map;
+
+    const myId = currentUser?.id;
+    const myName = currentUser?.name;
+    const myEmail = currentUser?.email;
 
     messages.forEach((m) => {
       if (m && m.readBy && Array.isArray(m.readBy)) {
         m.readBy.forEach((r) => {
           const key = typeof r === "object" ? (r.id || r.name || r.email) : r;
+          const name = typeof r === "object" ? (r.name || r.email) : r;
+          const id = typeof r === "object" ? r.id : null;
+
+          // Exclude current user (sender)
+          if (id && (id === myId || id === myName)) return;
+          if (name && (name === myName || name === myEmail)) return;
+
           if (key) {
             map.set(key, m.id);
           }
@@ -87,7 +98,7 @@ export default function MessageList({
     });
 
     return map;
-  }, [messages]);
+  }, [messages, currentUser]);
 
   // Set of message IDs that have at least one later message read by someone
   const messagesWithLaterReadsSet = useMemo(() => {
@@ -353,6 +364,13 @@ export default function MessageList({
             const allReadByList = msg.readBy || [];
             const readByList = allReadByList.filter((r) => {
               const key = typeof r === "object" ? (r.id || r.name || r.email) : r;
+              const name = typeof r === "object" ? (r.name || r.email) : r;
+              const id = typeof r === "object" ? r.id : null;
+
+              // Exclude current user (sender) from group readers
+              if (id && (id === currentUser?.id || id === currentUser?.name)) return false;
+              if (name && (name === currentUser?.name || name === currentUser?.email)) return false;
+
               return latestMessageIdPerReader.get(key) === msg.id;
             });
             const isGroupChat = activeChat?.type === "group" || activeChat?.type === "channel" || (activeId && (activeId.startsWith("c-") || activeId.startsWith("g-")));
