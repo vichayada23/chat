@@ -676,50 +676,37 @@ export default function MessageList({
                   )}
                 </div>
 
-                {/* Sent Message Read By Status Avatars & 5-Second Expiry for DM "✓ อ่านแล้ว" */}
+                {/* Sent Message Read By Status Avatars */}
                 {isSentByMe && (
                   <div className="message-read-status-row">
                     {readByList.length > 0 ? (
-                      isGroupChat ? (
-                        /* Group Chat: Show small circular profile avatars below message */
-                        <div
-                          className="read-by-avatars-container"
-                          title={`อ่านแล้วโดย (${readByList.length} คน): ${readByList.map((r) => r.name || r).join(", ")}`}
-                        >
-                          <div className="read-by-avatars-group">
-                            {readByList.slice(0, 4).map((reader, idx) => (
+                      /* Show circular profile picture avatar(s) of reader(s) */
+                      <div
+                        className="read-by-avatars-container"
+                        title={`อ่านแล้วโดย: ${readByList.map((r) => (typeof r === "object" ? r.name || r.email : r)).join(", ")}`}
+                      >
+                        <div className="read-by-avatars-group">
+                          {readByList.slice(0, 4).map((reader, idx) => {
+                            const rName = typeof reader === "object" ? (reader.name || reader.email) : reader;
+                            const rAvatar = (typeof reader === "object" ? reader.avatar : null) || getRegisteredNameAndAvatar(rName, rName).avatar || "/default-avatar.svg";
+
+                            return (
                               <img
                                 key={reader.id || idx}
-                                src={(typeof reader === "object" ? reader.avatar : null) || "/default-avatar.svg"}
-                                alt={(typeof reader === "object" ? reader.name : reader) || "สมาชิก"}
+                                src={rAvatar}
+                                alt={rName || "สมาชิก"}
                                 className="read-by-avatar-img"
-                                title={(typeof reader === "object" ? reader.name : reader) || "สมาชิก"}
+                                title={`อ่านแล้วโดย ${rName}`}
                               />
-                            ))}
-                            {readByList.length > 4 && (
-                              <span className="read-by-more-badge">
-                                +{readByList.length - 4}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        /* DM Chat: Show "✓ อ่านแล้ว" for 5 seconds, then disappear */
-                        (() => {
-                          const firstReader = readByList[0];
-                          const readTimeMs = (typeof firstReader === "object" ? firstReader.readAt : null) || msg.readAt || msg.sentAt || Date.now();
-                          const elapsedSec = Math.floor((nowTime - readTimeMs) / 1000);
-
-                          if (elapsedSec < 5) {
-                            return (
-                              <span className="read-status-sent-text read-done" title="อ่านแล้ว (จะซ่อนใน 5 วินาที)">
-                                ✓ อ่านแล้ว
-                              </span>
                             );
-                          }
-                          return null;
-                        })()
-                      )
+                          })}
+                          {readByList.length > 4 && (
+                            <span className="read-by-more-badge">
+                              +{readByList.length - 4}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     ) : (
                       (() => {
                         const ageSec = getMessageAgeSeconds(msg);
