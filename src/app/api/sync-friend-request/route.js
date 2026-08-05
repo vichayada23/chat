@@ -8,7 +8,7 @@ const supabaseUrl =
 const supabaseServiceKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  "";
+  "sb_publishable_w8FunRGA1K6WQzmS-AMRYQ_mxw2C_Xm";
 
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
