@@ -159,8 +159,8 @@ export function useChatSync(currentUser, isLoggedIn, onNewMessages, onNotify, on
     // Incremental poll every 600ms for instant real-time status updates
     intervalRef.current = setInterval(poll, 600);
 
-    // Full sync every 800ms for real-time deletion detection across all devices
-    fullSyncIntervalRef.current = setInterval(fullSync, 800);
+    // Full sync every 3s — only needed for deletion detection (lighter load)
+    fullSyncIntervalRef.current = setInterval(fullSync, 3000);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
