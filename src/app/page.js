@@ -73,13 +73,17 @@ export default function Home() {
       newMsgs.forEach((msg) => {
         if (!msg?.channelId) return;
 
-        // Auto-mark incoming messages as read instantly if recipient has active chat room open
-        const isCurrentRecipientInChat = (() => {
+        // Mark messages as read ONLY if the current user is actively in that chat room
+        // This ensures "เพิ่งเห็น" only shows when user actually opens the chat
+        const isCurrentRecipientActivelyInChat = (() => {
           if (!activeIdRef.current || !currentUserRef.current) return false;
+          // Skip messages sent by the current user
           if (msg.senderId === currentUserRef.current.id || msg.senderName === currentUserRef.current.name) return false;
+
+          // Check if active chat exactly matches the message's channel
           if (activeIdRef.current === msg.channelId) return true;
 
-          // Match DM shared channel ID
+          // Also match DM shared channel ID (both sides use same shared room)
           const activeDm = (directMessagesRef.current || []).find((d) => d.id === activeIdRef.current);
           if (activeDm) {
             const sharedId = getSharedDmChannelId(activeIdRef.current, activeDm.name, currentUserRef.current, directMessagesRef.current || []);
@@ -88,10 +92,15 @@ export default function Home() {
           return false;
         })();
 
-        if (isCurrentRecipientInChat) {
+        if (isCurrentRecipientActivelyInChat) {
           const currentUserId = currentUserRef.current.id || currentUserRef.current.name;
           const readBy = msg.readBy || [];
-          if (!readBy.some((r) => (typeof r === "object" ? r.id === currentUserId || r.name === currentUserRef.current.name : r === currentUserRef.current.name))) {
+          const alreadyRead = readBy.some((r) =>
+            typeof r === "object"
+              ? r.id === currentUserId || r.name === currentUserRef.current.name
+              : r === currentUserRef.current.name
+          );
+          if (!alreadyRead) {
             const updatedReadBy = [
               ...readBy,
               {
@@ -103,7 +112,7 @@ export default function Home() {
             ];
             msg.readBy = updatedReadBy;
 
-            // Sync updated readBy to Supabase IMMEDIATELY
+            // Sync updated readBy to Supabase
             fetch("/api/sync-chat-message", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -143,10 +152,33 @@ export default function Home() {
       return;
     }
 
+    // Also skip if it matches a DM shared channel that is currently active
+    const activeDmForCurrent = (directMessagesRef.current || []).find((d) => d.id === activeIdRef.current);
+    if (activeDmForCurrent) {
+      const sharedId = getSharedDmChannelId(activeIdRef.current, activeDmForCurrent.name, currentUserRef.current, directMessagesRef.current || []);
+      if (sharedId === chatId) return;
+    }
+
     playNotificationSound();
 
-    // 3. Update existing toast box for this chatId (ทับข้อความเดิมของแชทนั้น)
-    // or add a new box if it's a different chat (ขึ้นอีกกล่อง)
+    // 3. Increment unread count for the matching channel or DM
+    setChannels((prev) =>
+      prev.map((ch) => {
+        if (ch.id === chatId) return { ...ch, unread: (ch.unread || 0) + 1 };
+        return ch;
+      })
+    );
+    setDirectMessages((prev) =>
+      prev.map((dm) => {
+        if (dm.id === chatId) return { ...dm, unread: (dm.unread || 0) + 1 };
+        // Also match shared DM channel ID
+        const sharedId = getSharedDmChannelId(dm.id, dm.name, currentUserRef.current, prev);
+        if (sharedId === chatId) return { ...dm, unread: (dm.unread || 0) + 1 };
+        return dm;
+      })
+    );
+
+    // 4. Update existing toast box for this chatId
     setToastsMap((prev) => ({
       ...prev,
       [chatId]: {
