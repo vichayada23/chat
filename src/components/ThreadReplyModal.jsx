@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { X, MessageSquare, Send, CornerDownRight } from "lucide-react";
-import { currentUser } from "../data/mockData";
+import React, { useState, useRef, useEffect } from "react";
+import { X, MessageSquare, Send } from "lucide-react";
 
 export default function ThreadReplyModal({
   isOpen,
@@ -10,8 +9,16 @@ export default function ThreadReplyModal({
   parentMessage,
   threadReplies = [],
   onSendReply,
+  currentUser,
 }) {
   const [inputText, setInputText] = useState("");
+  const repliesEndRef = useRef(null);
+
+  useEffect(() => {
+    if (repliesEndRef.current) {
+      repliesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [threadReplies]);
 
   if (!isOpen || !parentMessage) return null;
 
@@ -143,6 +150,7 @@ export default function ThreadReplyModal({
                 );
               })
             )}
+            <div ref={repliesEndRef} />
           </div>
         </div>
 

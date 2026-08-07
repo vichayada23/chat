@@ -2466,6 +2466,7 @@ export default function Home() {
         parentMessage={activeThreadParent}
         threadReplies={activeThreadParent ? threadsState[activeThreadParent.id] || [] : []}
         onSendReply={handleSendThreadReply}
+        currentUser={currentUser}
       />
 
       {/* Create Album Modal */}
