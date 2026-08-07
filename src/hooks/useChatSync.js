@@ -3,8 +3,8 @@
 import { useEffect, useRef, useCallback } from "react";
 
 /**
- * useChatSync – polls /api/sync-chat-message every 1.5s for new messages,
- * and performs full-sync to ensure no messages are missed and handle real-time deletions.
+ * useChatSync – polls /api/sync-chat-message for new messages,
+ * and performs full-sync to detect real-time deletions.
  *
  * @param {object} currentUser  – { name, id }
  * @param {boolean} isLoggedIn
@@ -17,14 +17,15 @@ export function useChatSync(currentUser, isLoggedIn, onNewMessages, onNotify, on
   const lastSinceRef = useRef(null);
   // Set of all message IDs we have processed
   const knownIdsRef = useRef(new Set());
-  // Map of message ID -> signature to detect real-time updates (e.g. readBy status)
+  // Map of message ID -> signature to detect real-time updates (e.g. readBy, reactions)
   const messageSignaturesRef = useRef(new Map());
-  // Set of message IDs specifically confirmed returned from Supabase GET
+  // Set of message IDs confirmed returned from Supabase GET
   const confirmedSupabaseIdsRef = useRef(new Set());
 
   const intervalRef = useRef(null);
   const fullSyncIntervalRef = useRef(null);
   const isFirstPollRef = useRef(true);
+  const isPollInFlightRef = useRef(false);
 
   // Process incoming messages from Supabase GET
   const processMessages = useCallback(
@@ -40,12 +41,13 @@ export function useChatSync(currentUser, isLoggedIn, onNewMessages, onNotify, on
         // Mark as confirmed in Supabase
         confirmedSupabaseIdsRef.current.add(msg.id);
 
+        // Use content + readBy + reactions as signature for change detection
         const sig = JSON.stringify({
-          text: msg.text,
+          content: msg.content,
           readBy: msg.readBy,
           reactions: msg.reactions,
           isPinned: msg.isPinned,
-          unsend: msg.unsend,
+          threadReplies: (msg.threadReplies || []).length,
         });
 
         const prevSig = messageSignaturesRef.current.get(msg.id);
@@ -87,16 +89,18 @@ export function useChatSync(currentUser, isLoggedIn, onNewMessages, onNotify, on
     [currentUser, onNewMessages, onNotify]
   );
 
-  // Incremental poll – fetch new messages since last cursor
+  // Incremental poll – fetch new messages since last cursor (fast: only new rows)
   const poll = useCallback(async () => {
     if (!isLoggedIn || !currentUser) return;
+    if (isPollInFlightRef.current) return; // skip if previous poll still running
+    isPollInFlightRef.current = true;
     try {
       let url = "/api/sync-chat-message";
       if (lastSinceRef.current) {
         url += `?since=${encodeURIComponent(lastSinceRef.current)}`;
       }
 
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) return;
 
       const data = await res.json();
@@ -108,6 +112,8 @@ export function useChatSync(currentUser, isLoggedIn, onNewMessages, onNotify, on
       processMessages(msgs, isFirst);
     } catch (err) {
       // Network error – skip
+    } finally {
+      isPollInFlightRef.current = false;
     }
   }, [isLoggedIn, currentUser, processMessages]);
 
@@ -115,7 +121,7 @@ export function useChatSync(currentUser, isLoggedIn, onNewMessages, onNotify, on
   const fullSync = useCallback(async () => {
     if (!isLoggedIn || !currentUser) return;
     try {
-      const res = await fetch("/api/sync-chat-message");
+      const res = await fetch("/api/sync-chat-message", { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
       const msgs = data?.messages || [];
@@ -126,7 +132,7 @@ export function useChatSync(currentUser, isLoggedIn, onNewMessages, onNotify, on
       // Build set of IDs currently present in Supabase
       const supabaseIds = new Set(msgs.map((m) => m.id).filter(Boolean));
 
-      // Find IDs that WERE previously known or confirmed, but are NOW missing in Supabase -> deleted by someone
+      // Find IDs that were known but are now missing in Supabase -> deleted
       const deletedIds = [];
       const allKnownIds = new Set([...knownIdsRef.current, ...confirmedSupabaseIdsRef.current]);
       allKnownIds.forEach((id) => {
@@ -152,15 +158,16 @@ export function useChatSync(currentUser, isLoggedIn, onNewMessages, onNotify, on
     if (!isLoggedIn) return;
 
     isFirstPollRef.current = true;
+    isPollInFlightRef.current = false;
 
     // Fetch immediately on mount / login
     poll();
 
-    // Incremental poll every 600ms for instant real-time status updates
-    intervalRef.current = setInterval(poll, 600);
+    // Incremental poll every 300ms — fast real-time message delivery
+    intervalRef.current = setInterval(poll, 300);
 
-    // Full sync every 3s — only needed for deletion detection (lighter load)
-    fullSyncIntervalRef.current = setInterval(fullSync, 3000);
+    // Full sync every 4s — for deletion detection only
+    fullSyncIntervalRef.current = setInterval(fullSync, 4000);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
