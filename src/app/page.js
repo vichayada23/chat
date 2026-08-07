@@ -21,7 +21,7 @@ import CreateNoteModal from "../components/CreateNoteModal";
 import ThreadReplyModal from "../components/ThreadReplyModal";
 import { MessageSquare, Sparkles, Plus, UserPlus, Menu, PanelLeftOpen } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
-import { playNotificationSound, getSharedDmChannelId as getSharedDmChannelIdFromUtils, saveUserToRegisteredList as saveUserToRegisteredListFromUtils, getRegisteredNameAndAvatar, sortMessagesChronologically } from "../utils/friendUtils";
+import { playNotificationSound, normalize, getSharedDmChannelId as getSharedDmChannelIdFromUtils, saveUserToRegisteredList as saveUserToRegisteredListFromUtils, getRegisteredNameAndAvatar, sortMessagesChronologically } from "../utils/friendUtils";
 import { useChatSync } from "../hooks/useChatSync";
 import { useTypingSync } from "../hooks/useTypingSync";
 import {
