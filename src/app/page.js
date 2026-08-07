@@ -178,18 +178,7 @@ export default function Home() {
     if (typeof document !== "undefined") document.title = "Tasky Connect";
   }, []);
 
-  const handleClickToast = React.useCallback((chatId) => {
-    if (chatId) {
-      setActiveId(chatId);
-      dismissedChatIdsRef.current.delete(chatId);
-      setToastsMap((prev) => {
-        const copy = { ...prev };
-        delete copy[chatId];
-        return copy;
-      });
-    }
-    if (typeof document !== "undefined") document.title = "Tasky Connect";
-  }, []);
+
 
   // Handle messages deleted by other users (detected via full-sync diff)
   const handleDeletedIds = React.useCallback((deletedIds) => {
@@ -1278,6 +1267,46 @@ export default function Home() {
       );
     }
   };
+
+  const handleClickToast = React.useCallback(
+    (chatId) => {
+      if (!chatId) return;
+
+      let targetId = chatId;
+      let targetType = chatId.startsWith("c-") ? "channel" : "dm";
+
+      const targetChannel = channels.find((c) => c.id === chatId || c.name === chatId);
+      if (targetChannel) {
+        targetId = targetChannel.id;
+        targetType = "channel";
+      } else {
+        const targetDm = directMessages.find((d) => {
+          if (d.id === chatId || d.name === chatId || d.email === chatId) return true;
+          const sharedId = getSharedDmChannelId(d.id, d.name, currentUser, directMessages);
+          return sharedId === chatId;
+        });
+
+        if (targetDm) {
+          targetId = targetDm.id;
+          targetType = "dm";
+        }
+      }
+
+      handleSelectChat(targetId, targetType);
+
+      dismissedChatIdsRef.current.delete(chatId);
+      dismissedChatIdsRef.current.delete(targetId);
+      setToastsMap((prev) => {
+        const copy = { ...prev };
+        delete copy[chatId];
+        delete copy[targetId];
+        return copy;
+      });
+
+      if (typeof document !== "undefined") document.title = "Tasky Connect";
+    },
+    [channels, directMessages, currentUser, handleSelectChat]
+  );
 
   const handleOpenChatHead = (id, type) => {
     setActiveChatHeadId(id);
