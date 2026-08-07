@@ -122,6 +122,8 @@ export default function Home() {
         }
 
         const chId = msg.channelId;
+
+        // Store under original channelId
         const existing = updated[chId] || [];
         const existingIdx = existing.findIndex((m) => m.id === msg.id);
         if (existingIdx === -1) {
@@ -132,6 +134,32 @@ export default function Home() {
           copy[existingIdx] = { ...copy[existingIdx], ...msg };
           updated[chId] = sortMessagesChronologically(copy);
           changed = true;
+        }
+
+        // For DM messages: also store under locally-computed sharedRoomId
+        // This ensures user 2 finds the message even if channelId was computed on user 1's side
+        if (chId && chId.startsWith("dm-room-") && currentUserRef.current && directMessagesRef.current) {
+          const dms = directMessagesRef.current || [];
+          for (const dm of dms) {
+            const localSharedId = getSharedDmChannelId(dm.id, dm.name, currentUserRef.current, dms);
+            if (localSharedId === chId || localSharedId !== dm.id) {
+              // msg already stored under chId; also ensure it's under localSharedId
+              if (localSharedId !== chId) {
+                const altExisting = updated[localSharedId] || [];
+                const altIdx = altExisting.findIndex((m) => m.id === msg.id);
+                if (altIdx === -1) {
+                  updated[localSharedId] = sortMessagesChronologically([...altExisting, msg]);
+                  changed = true;
+                } else {
+                  const altCopy = [...altExisting];
+                  altCopy[altIdx] = { ...altCopy[altIdx], ...msg };
+                  updated[localSharedId] = sortMessagesChronologically(altCopy);
+                  changed = true;
+                }
+              }
+              break;
+            }
+          }
         }
 
         // Sync incoming threadReplies into local threadsState
