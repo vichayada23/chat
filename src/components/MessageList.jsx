@@ -689,6 +689,16 @@ export default function MessageList({
                               <Pin size={13} color="var(--purple-primary)" />
                               <span>{msg.isPinned ? "ยกเลิกปักหมุด" : "ปักหมุดข้อความ"}</span>
                             </button>
+                            <button
+                              className="context-menu-item danger"
+                              onClick={() => {
+                                if (onDeleteMessage) onDeleteMessage(msg.id);
+                                setMenuOpenMsgId(null);
+                              }}
+                            >
+                              <Trash2 size={13} color="var(--status-busy)" />
+                              <span>ลบข้อความ</span>
+                            </button>
                           </div>
                         )}
                       </div>

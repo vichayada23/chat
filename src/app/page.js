@@ -1681,13 +1681,22 @@ export default function Home() {
   };
 
   const handleDeleteMessage = (msgId) => {
-    if (!activeId) return;
+    if (!msgId) return;
 
-    // Remove from local state immediately
-    setMessagesState((prev) => ({
-      ...prev,
-      [activeId]: (prev[activeId] || []).filter((msg) => msg.id !== msgId),
-    }));
+    // Remove from ALL room keys in messagesState immediately
+    setMessagesState((prev) => {
+      const updated = {};
+      let changed = false;
+      for (const key in prev) {
+        const list = prev[key] || [];
+        const filtered = list.filter((msg) => msg.id !== msgId);
+        if (filtered.length !== list.length) {
+          changed = true;
+        }
+        updated[key] = filtered;
+      }
+      return changed ? updated : prev;
+    });
 
     // Sync deletion to Supabase so other users see it removed
     fetch("/api/sync-chat-message", {
