@@ -133,6 +133,22 @@ export default function Home() {
           updated[chId] = sortMessagesChronologically(copy);
           changed = true;
         }
+
+        // Sync incoming threadReplies into local threadsState
+        if (msg.threadReplies && Array.isArray(msg.threadReplies) && msg.threadReplies.length > 0) {
+          setThreadsState((prev) => {
+            const existingReplies = prev[msg.id] || [];
+            const merged = [...existingReplies];
+            let replyChanged = false;
+            msg.threadReplies.forEach((r) => {
+              if (!merged.some((em) => em.id === r.id)) {
+                merged.push(r);
+                replyChanged = true;
+              }
+            });
+            return replyChanged ? { ...prev, [msg.id]: merged } : prev;
+          });
+        }
       });
       return changed ? updated : prev;
     });
@@ -1497,8 +1513,10 @@ export default function Home() {
     }).catch(() => {});
   };
 
-  // Thread Replies Handler
+  // Thread Replies Handler (Real-time synced across devices)
   const handleSendThreadReply = (parentMsgId, replyText) => {
+    if (!currentUser || !parentMsgId) return;
+
     const now = new Date();
     const timeString = `${now.getHours().toString().padStart(2, "0")}:${now
       .getMinutes()
@@ -1506,7 +1524,7 @@ export default function Home() {
       .padStart(2, "0")} น.`;
 
     const newReply = {
-      id: `tr-${Date.now()}`,
+      id: `tr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       senderId: currentUser.id,
       senderName: currentUser.name,
       senderAvatar: currentUser.avatar || "/default-avatar.svg",
@@ -1514,10 +1532,48 @@ export default function Home() {
       timestamp: timeString,
     };
 
-    setThreadsState((prev) => ({
-      ...prev,
-      [parentMsgId]: [...(prev[parentMsgId] || []), newReply],
-    }));
+    setThreadsState((prev) => {
+      const currentList = prev[parentMsgId] || [];
+      const updatedList = [...currentList, newReply];
+
+      // Update parent message in messagesState and sync to Supabase
+      setMessagesState((prevMsgs) => {
+        let msgFound = null;
+        let targetChId = null;
+
+        for (const chId in prevMsgs) {
+          const list = prevMsgs[chId] || [];
+          const idx = list.findIndex((m) => m.id === parentMsgId);
+          if (idx !== -1) {
+            msgFound = { ...list[idx], threadReplies: updatedList };
+            targetChId = chId;
+            break;
+          }
+        }
+
+        if (msgFound && targetChId) {
+          // Sync updated parent message with threadReplies to Supabase
+          fetch("/api/sync-chat-message", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(msgFound),
+          }).catch(() => {});
+
+          return {
+            ...prevMsgs,
+            [targetChId]: prevMsgs[targetChId].map((m) =>
+              m.id === parentMsgId ? msgFound : m
+            ),
+          };
+        }
+        return prevMsgs;
+      });
+
+      return {
+        ...prev,
+        [parentMsgId]: updatedList,
+      };
+    });
   };
 
   // Album & Note Handlers
