@@ -121,6 +121,9 @@ export const getSharedDmChannelId = (targetChatId, partnerNameInput = "", curren
   if (uKey.includes("@")) uKey = uKey.split("@")[0];
   if (pKey.includes("@")) pKey = pKey.split("@")[0];
 
+  uKey = uKey.replace(/^dm-/, "").replace(/[^a-z0-9_-]/gi, "");
+  pKey = pKey.replace(/^dm-/, "").replace(/[^a-z0-9_-]/gi, "");
+
   if (!uKey) uKey = "user";
   if (!pKey) pKey = "partner";
 

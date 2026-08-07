@@ -1221,18 +1221,81 @@ export default function Home() {
   _activeTypingChIdRef.current = activeTypingChannelId;
 
   // Filter messages based on live header search and merged shared room ID
-  const sharedRoomIdForActive = activeDm ? getSharedDmChannelId(activeId, activeDm.name, currentUser, directMessages) : activeId;
-  const activeMsgs = activeId ? messagesState[activeId] || [] : [];
-  const sharedMsgs = (sharedRoomIdForActive && sharedRoomIdForActive !== activeId) ? (messagesState[sharedRoomIdForActive] || []) : [];
+  const sharedRoomIdForActive = activeDm
+    ? getSharedDmChannelId(activeId, activeDm.name, currentUser, directMessages)
+    : activeId;
 
-  const combinedRawMsgs = [...activeMsgs];
-  sharedMsgs.forEach((sm) => {
-    if (!combinedRawMsgs.some((em) => em.id === sm.id)) {
-      combinedRawMsgs.push(sm);
+  const combinedRawMsgs = [];
+  const seenMsgIds = new Set();
+
+  if (activeChannel) {
+    const list = messagesState[activeId] || [];
+    list.forEach((m) => {
+      if (m && m.id && !seenMsgIds.has(m.id)) {
+        seenMsgIds.add(m.id);
+        combinedRawMsgs.push(m);
+      }
+    });
+  } else if (activeDm) {
+    const partnerNameNorm = normalize(activeDm.name || "");
+    const partnerEmailNorm = normalize(activeDm.email || "");
+    const currentNameNorm = normalize(currentUser?.name || "");
+    const currentEmailNorm = normalize(currentUser?.email || "");
+
+    const partnerPrefix = partnerEmailNorm ? partnerEmailNorm.split("@")[0] : partnerNameNorm;
+    const currentPrefix = currentEmailNorm ? currentEmailNorm.split("@")[0] : currentNameNorm;
+
+    for (const key in messagesState) {
+      const list = messagesState[key] || [];
+      const keyNorm = normalize(key);
+
+      const isKeyMatch =
+        key === activeId ||
+        key === sharedRoomIdForActive ||
+        (partnerPrefix && keyNorm.includes(partnerPrefix)) ||
+        (activeDm.id && keyNorm.includes(normalize(activeDm.id)));
+
+      if (isKeyMatch) {
+        list.forEach((m) => {
+          if (m && m.id && !seenMsgIds.has(m.id)) {
+            seenMsgIds.add(m.id);
+            combinedRawMsgs.push(m);
+          }
+        });
+      } else {
+        list.forEach((m) => {
+          if (!m || !m.id || seenMsgIds.has(m.id)) return;
+          const msgSenderName = normalize(m.senderName || m.sender || "");
+          const msgSenderEmail = normalize(m.senderEmail || "");
+
+          const isFromPartner =
+            (partnerNameNorm && msgSenderName === partnerNameNorm) ||
+            (partnerEmailNorm && msgSenderEmail === partnerEmailNorm) ||
+            (activeDm.id && m.senderId === activeDm.id);
+
+          const isFromMe =
+            (currentNameNorm && msgSenderName === currentNameNorm) ||
+            (currentEmailNorm && msgSenderEmail === currentEmailNorm) ||
+            (currentUser?.id && m.senderId === currentUser.id);
+
+          if (isFromPartner || (isFromMe && partnerPrefix && keyNorm.includes(partnerPrefix))) {
+            seenMsgIds.add(m.id);
+            combinedRawMsgs.push(m);
+          }
+        });
+      }
     }
-  });
+  } else if (activeId) {
+    const list = messagesState[activeId] || [];
+    list.forEach((m) => {
+      if (m && m.id && !seenMsgIds.has(m.id)) {
+        seenMsgIds.add(m.id);
+        combinedRawMsgs.push(m);
+      }
+    });
+  }
 
-  const rawMessages = combinedRawMsgs;
+  const rawMessages = sortMessagesChronologically(combinedRawMsgs);
   const currentMessages = rawMessages.filter((msg) => {
     if (chatSearchQuery.trim()) {
       return msg.content.toLowerCase().includes(chatSearchQuery.toLowerCase());
