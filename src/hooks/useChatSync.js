@@ -126,9 +126,10 @@ export function useChatSync(currentUser, isLoggedIn, onNewMessages, onNotify, on
       // Build set of IDs currently present in Supabase
       const supabaseIds = new Set(msgs.map((m) => m.id).filter(Boolean));
 
-      // Find IDs that WERE previously confirmed in Supabase, but are NOW missing -> deleted by someone
+      // Find IDs that WERE previously known or confirmed, but are NOW missing in Supabase -> deleted by someone
       const deletedIds = [];
-      confirmedSupabaseIdsRef.current.forEach((id) => {
+      const allKnownIds = new Set([...knownIdsRef.current, ...confirmedSupabaseIdsRef.current]);
+      allKnownIds.forEach((id) => {
         if (!supabaseIds.has(id)) {
           deletedIds.push(id);
         }
@@ -138,6 +139,7 @@ export function useChatSync(currentUser, isLoggedIn, onNewMessages, onNotify, on
         deletedIds.forEach((id) => {
           confirmedSupabaseIdsRef.current.delete(id);
           knownIdsRef.current.delete(id);
+          messageSignaturesRef.current.delete(id);
         });
         onDeletedIds && onDeletedIds(deletedIds);
       }
@@ -157,8 +159,8 @@ export function useChatSync(currentUser, isLoggedIn, onNewMessages, onNotify, on
     // Incremental poll every 600ms for instant real-time status updates
     intervalRef.current = setInterval(poll, 600);
 
-    // Full sync every 2s to catch missed messages and deletions
-    fullSyncIntervalRef.current = setInterval(fullSync, 2000);
+    // Full sync every 800ms for real-time deletion detection across all devices
+    fullSyncIntervalRef.current = setInterval(fullSync, 800);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
